@@ -1,6 +1,4 @@
-﻿# 🏭 Production Dashboard PD2 - Unified Console v5.04
-
-> ระบบบันทึกและวิเคราะห์ข้อมูลการผลิตแบบเรียลไทม์สำหรับอุตสาหกรรมสิ่งทอ
+﻿# Production Dashboard PD2 - Unified Console v6.00
 
 [![Version](https://img.shields.io/badge/version-5.04-blue.svg)](https://github.com/Zolapolysack/V6.0-PD2_Shift-Combined--)
 [![Dashboard](https://img.shields.io/badge/Dashboard-v2.0.0-green.svg)](https://github.com/Zolapolysack/V6.0-PD2_Shift-Combined--)
@@ -21,7 +19,7 @@
 
 **เข้าใช้งานได้ที่:** [https://zolapolysack.github.io/V6.0-PD2_Shift-Combined--/](https://zolapolysack.github.io/V6.0-PD2_Shift-Combined--/)
 
-## 🛠️ เทคโนโลยีที่ใช้
+##  เทคโนโลยีที่ใช้
 
 - **Frontend:** HTML5, CSS3, Tailwind CSS 3.4.10, JavaScript ES6+
 - **Backend:** Google Apps Script API v2.0.3
@@ -29,7 +27,7 @@
 - **Charts:** Chart.js 4.4.1
 - **PWA:** Service Worker + Offline Support
 
-## 📊 Performance Optimization v2.0
+##  Performance Optimization v2.0
 
 - **Smart Caching** - ลด API calls 80-90%
 - **Request Timeout** - ป้องกันการรอนาน (30s)
