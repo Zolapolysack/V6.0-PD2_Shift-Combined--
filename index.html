@@ -1,0 +1,1612 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Language" content="th" />
+  <!-- Added meta enhancements -->
+  <meta name="description" content="ระบบบันทึกข้อมูลกะ A/B และรายงาน แผนกผลิต 2 - ใช้งานได้ทั้งออฟไลน์และออนไลน์" />
+  <meta name="theme-color" content="#0a0a0a" />
+  <meta name="color-scheme" content="light dark" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <!-- Runtime API binding for production: replace content with your deployed API URL -->
+  <meta name="pd2-api" content="https://YOUR_DEPLOYED_API_SERVER_URL_HERE" />
+  <title>ระบบบันทึกข้อมูลรายงานแผนกผลิต 2</title>
+  <script src="https://cdn.tailwindcss.com/3.4.10"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <!-- Preload Kanit to improve FCP -->
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Kanit:wght@200;300;400;500;600&display=swap" />
+  <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@200;300;400;500;600&display=swap" rel="stylesheet">
+  <!-- Load shared PD2 notification module once at the parent level -->
+  <script src="./pd2-notify.js"></script>
+  <!-- Auth module (required by login form) -->
+  <script src="./login V2.0/forms/neumorphism/auth.js"></script>
+  <!-- Lightweight auth bridge (overlay login gate) -->
+  <script src="./assets/js/pd2-auth-bridge.js"></script>
+  <!-- PWA: manifest + icons -->
+  <link rel="manifest" href="./manifest.json">
+  <!-- Use root images.png as a single source icon; browsers will scale as needed. Replace with proper sizes if available. -->
+  <link rel="icon" href="./images.png" sizes="192x192" />
+  <link rel="apple-touch-icon" href="./images.png" />
+  <style>
+    :root { 
+      --pd2-green:#16a34a; --pd2-green-accent:#22c55e; 
+      --pd2-red:#f43f5e; --pd2-blue:#24a8ea; --pd2-purple:#6d28d9; 
+      --pd2-spacing-xs: clamp(0.5rem, 1vw, 0.75rem);
+      --pd2-spacing-sm: clamp(0.75rem, 1.5vw, 1rem);
+      --pd2-spacing-md: clamp(1rem, 2vw, 1.5rem);
+      --pd2-spacing-lg: clamp(1.5rem, 3vw, 2rem);
+      --pd2-spacing-xl: clamp(2rem, 4vw, 3rem);
+    }
+    * { font-family: 'Kanit', sans-serif; }
+    body { 
+      background: linear-gradient(135deg, #0a0a0a 50%, #0ea5e9 100%); 
+      min-height: 100vh; 
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    .glass { 
+      background: rgba(255,255,255,0.1); 
+      -webkit-backdrop-filter: blur(12px); 
+      backdrop-filter: blur(12px); 
+      border: 1px solid rgba(255,255,255,0.2); 
+    }
+    .tab-btn { transition: all .2s cubic-bezier(0.4, 0, 0.2, 1); }
+    .tab-btn.active { background: linear-gradient(135deg, var(--pd2-green-accent), var(--pd2-green)); color: #fff; border-color:var(--pd2-green); }
+    .tab-btn:not(.active) { background: rgba(255,255,255,0.9); color:#111827; border-color:#e5e7eb; }
+    .frame-wrap { height: calc(100vh - 112px); /* header(32)+box(80)≈112 */ }
+    @media (max-width: 768px) { .frame-wrap { height: calc(100vh - 140px); } }
+    .hero-blur { -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+    /* Loading overlay for iframe navigation */
+    .loading-overlay { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.85); z-index:40; }
+    .loading-hidden { display:none; }
+    .pill-btn[disabled] { opacity:.55; cursor:not-allowed; }
+    
+    /* Professional gradient text with better rendering */
+    .gradient-text { 
+      font-weight: 700; 
+      background: linear-gradient(90deg,#ffffff 0%,#f3f4f6 35%,#e5e7eb 65%,#d1d5db 100%); 
+      -webkit-background-clip: text; 
+      background-clip: text; 
+      color: transparent; 
+      -webkit-text-stroke: 0; 
+      text-shadow: 0 2px 4px rgba(0,0,0,0.1); 
+      filter: none; 
+      letter-spacing: -0.02em; 
+      -webkit-font-smoothing: antialiased; 
+      -moz-osx-font-smoothing: grayscale;
+      line-height: 1.2;
+    }
+    
+    .sticky-card { position: sticky; top: 1rem; z-index: 50; }
+    
+    /* Enhanced pill group with better spacing */
+    .pill-group { 
+      background: rgba(255,255,255,0.88); 
+      border: 1px solid rgba(255,255,255,0.7); 
+      padding: 0.375rem; 
+      border-radius: 1rem; 
+      display: inline-flex; 
+      gap: 0.375rem;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+    
+    .pill-btn { 
+      position: relative; 
+      padding: 0.875rem 1.5rem; 
+      border-radius: 0.875rem; 
+      font-weight: 600; 
+      color:#0f172a; 
+      transition: transform .25s cubic-bezier(0.4, 0, 0.2, 1), 
+                  box-shadow .25s cubic-bezier(0.4, 0, 0.2, 1), 
+                  background-color .25s cubic-bezier(0.4, 0, 0.2, 1); 
+      will-change: transform; 
+      overflow: hidden; 
+      box-shadow: 0 2px 8px rgba(0,0,0,.08);
+      letter-spacing: 0.01em;
+    }
+    
+    .pill-btn:hover { 
+      transform: translateY(-2px); 
+      box-shadow: 0 8px 24px rgba(0,0,0,.15); 
+    }
+    
+    .pill-btn:active { 
+      transform: translateY(0); 
+      box-shadow: 0 4px 12px rgba(0,0,0,.12); 
+    }
+    
+    .pill-btn:focus-visible { 
+      outline: none; 
+      box-shadow: 0 0 0 3px rgba(255,255,255,.8), 0 8px 24px rgba(0,0,0,.2); 
+    }
+    
+    .pill-btn::after { 
+      content: ""; 
+      position: absolute; 
+      inset: -1px; 
+      background: radial-gradient(140px 70px at var(--x,10%) 50%, rgba(255,255,255,.4), transparent 65%); 
+      opacity: 0; 
+      transition: opacity .3s ease; 
+      pointer-events: none; 
+    }
+    
+    .pill-btn:hover::after { opacity: .65; }
+    
+    .pill-btn.active { 
+      background: linear-gradient(135deg, var(--pd2-green-accent), var(--pd2-green)); 
+      color:#fff; 
+      box-shadow: 0 14px 32px rgba(34,197,94,.32), 0 0 0 1px rgba(255,255,255,.3) inset; 
+    }
+    
+    #btnB.pill-btn.active { 
+      background: linear-gradient(135deg, #ef4444, var(--pd2-red)); 
+      box-shadow: 0 14px 32px rgba(244,63,94,.32), 0 0 0 1px rgba(255,255,255,.3) inset; 
+    }
+    
+    #btnReport.pill-btn.active { 
+      background: linear-gradient(135deg, #4c1d95, var(--pd2-purple)); 
+      box-shadow: 0 14px 32px rgba(109,40,217,.32), 0 0 0 1px rgba(255,255,255,.3) inset; 
+    }
+    
+    /* Professional grid background */
+    .bg-grid { 
+      background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,.14) 1px, transparent 0); 
+      background-size: 24px 24px; 
+    }
+    
+    /* Enhanced spotlight effect */
+    .spotlight { 
+      position: absolute; 
+      inset: 0; 
+      opacity: .85; 
+      mix-blend-mode: screen; 
+    }
+    
+    .spotlight:before, .spotlight:after { 
+      content: ""; 
+      position: absolute; 
+      border-radius: 9999px; 
+      filter: blur(70px); 
+    }
+    
+    .spotlight:before { 
+      width: 520px; 
+      height: 520px; 
+      left: -130px; 
+      top: -150px; 
+      background: radial-gradient(circle, rgba(34,211,238,.38), transparent 62%); 
+    }
+    
+    .spotlight:after { 
+      width: 580px; 
+      height: 580px; 
+      right: -170px; 
+      bottom: -190px; 
+      background: radial-gradient(circle, rgba(167,139,250,.38), transparent 62%); 
+    }
+    
+    /* Enhanced Mobile-First Shift Selector */
+    .shift-section { 
+      background: linear-gradient(135deg, rgba(255,255,255,0.13) 0%, rgba(255,255,255,0.09) 100%); 
+    }
+    
+    /* Mobile responsive pill buttons */
+    @media (max-width: 640px) {
+      .pill-group { 
+        flex-direction: column; 
+        width: 100%; 
+        max-width: 100%; 
+        gap: 0.875rem; 
+        padding: 0; 
+        background: transparent; 
+        border: none;
+        box-shadow: none;
+      }
+      
+      .pill-btn { 
+        width: 100%; 
+        padding: 1.25rem 1.75rem; 
+        border-radius: 0.875rem; 
+        font-weight: 600; 
+        background: rgba(255,255,255,0.96); 
+        display: flex; 
+        align-items: center; 
+        justify-content: center; 
+        min-height: 4.5rem; 
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      }
+      
+      .pill-btn:hover { 
+        transform: translateY(-3px); 
+        box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+      }
+    }
+    
+    /* Specific button colors for better distinction */
+    .pill-btn-shift-a { 
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%); 
+      color: white; 
+    }
+    
+    .pill-btn-shift-a:hover { 
+      background: linear-gradient(135deg, #059669 0%, #047857 100%); 
+      box-shadow: 0 10px 28px rgba(16,185,129,0.4); 
+    }
+    
+    .pill-btn-shift-b { 
+      background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); 
+      color: white; 
+    }
+    
+    .pill-btn-shift-b:hover { 
+      background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); 
+      box-shadow: 0 10px 28px rgba(239,68,68,0.4); 
+    }
+    
+    .pill-btn-report { 
+      background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); 
+      color: white; 
+    }
+    
+    .pill-btn-report:hover { 
+      background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%); 
+      box-shadow: 0 10px 28px rgba(139,92,246,0.4); 
+    }
+  </style>
+</head>
+<!-- mobile responsive fix: add bottom safe-area padding for Android navbar avoidance -->
+<body class="min-h-screen pb-[env(safe-area-inset-bottom,0)]" style="overflow-x:hidden;">
+  <!-- Skip to main content link -->
+  <a href="#workbench" class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 bg-black/70 text-white px-3 py-2 rounded">ข้ามไปยังพื้นที่ทำงาน</a>
+  <!-- Top Nav / Brand -->
+  <header class="mx-4 mt-4">
+    <div class="glass sticky-card rounded-xl p-3 flex items-center justify-between shadow-lg ring-1 ring-white/20">
+      <div class="flex items-center gap-3">
+        <div class="relative">
+          <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-cyan-400 to-blue-600 shadow-inner"></div>
+          <!-- Brand image points to images.png (placed at workspace root) -->
+          <img id="brandImg" src="images.png" alt="Brand" class="absolute inset-0 z-10 w-10 h-10 rounded-lg object-cover ring-1 ring-white/40" onerror="this.remove()" />
+        </div>
+        <div class="leading-tight">
+          <div class="text-white text-lg font-semibold">Production Dept. 2</div>
+          <div class="text-white/70 text-sm">Shift A+B Unified Console</div>
+        </div>
+      </div>
+      <nav class="hidden sm:flex items-center gap-3 text-sm">
+  <button id="pd2LogoutBtn" type="button" class="px-3 py-2 rounded-md border border-white/30 text-white/90 hover:text-white hover:bg-white/10 hover:border-white/60 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60" title="ออกจากระบบ">
+    ออกจากระบบ
+  </button>
+  <div class="relative" id="pd2ResetWrap">
+    <button id="pd2ResetBtn" type="button" class="px-3 py-2 rounded-md border border-rose-400/60 text-rose-200 hover:text-white hover:bg-rose-500/20 hover:border-rose-300 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300/70 relative" title="รีเซ็ตระบบ">
+      <span class="select-none">รีเซ็ตระบบ ▾</span>
+      <span class="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-rose-400 shadow-md ring-2 ring-rose-900/60 animate-pulse"></span>
+    </button>
+    <div id="pd2ResetMenu" class="hidden absolute right-0 mt-1 w-56 rounded-md border border-white/15 bg-slate-900/95 backdrop-blur px-2 py-2 shadow-lg z-50">
+      <div class="text-[11px] uppercase tracking-wide text-slate-400 mb-1 px-1">รีเซ็ต</div>
+      <button data-mode="partial" class="pd2-reset-item w-full text-left text-sm rounded px-2 py-1.5 hover:bg-slate-700/60 text-slate-200">
+        รีเซ็ตบางส่วน
+
+      </button>
+      <button data-mode="full" class="pd2-reset-item w-full text-left text-sm rounded px-2 py-1.5 hover:bg-rose-600/30 text-rose-300">
+        รีเซ็ตทั้งหมด
+        <!-- removed -->
+      </button>
+    </div>
+  </div>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <main id="main" role="main">
+  <!-- mobile responsive fix: reduce hero min height on very small screens -->
+  <section class="relative overflow-hidden mt-4 mx-4 rounded-2xl min-h-[260px] sm:min-h-[300px] md:min-h-[340px] flex items-center">
+    <div class="absolute inset-0 -z-10">
+      <div class="absolute -top-24 -left-24 w-80 h-80 bg-cyan-400/30 rounded-full blur-3xl"></div>
+      <div class="absolute -bottom-24 -right-24 w-96 h-96 bg-purple-500/30 rounded-full blur-3xl"></div>
+  <div class="absolute inset-0 bg-gradient-to-br from-white/10 to-white/0 hero-blur"></div>
+    </div>
+    <div class="w-full glass rounded-2xl bg-grid relative">
+      <div class="spotlight" aria-hidden="true"></div>
+      <div class="px-6 py-10 md:px-12 md:py-14">
+        <div class="max-w-4xl mx-auto text-center">
+          <!-- Balanced hero heading with better spacing -->
+          <h1 class="gradient-text whitespace-normal break-words tracking-tight text-[clamp(1.5rem,5vw,2.8rem)] font-bold leading-[1.2] mb-5 px-4">
+            ระบบบันทึกข้อมูลกะ A & B<br class="sm:hidden" />
+            <span class="block sm:inline"> และรายงาน PD2</span>
+          </h1>
+          <p class="text-white/90 whitespace-normal text-[clamp(0.95rem,2.5vw,1.125rem)] leading-relaxed max-w-3xl mx-auto px-4">
+            รวมการทำงานของทั้งสองกะ<br class="sm:hidden" />
+            <span class="block sm:inline"></span>สามารถสลับกะเพื่อบันทึกข้อมูล<br class="sm:hidden" />
+            <span class="block sm:inline"></span>
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Overview / Features -->
+  <section id="overview" class="mx-4 mt-10">
+    <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-5 lg:gap-6">
+      <div class="glass rounded-xl p-6 md:p-7 text-center h-full transition-all duration-300 hover:ring-2 hover:ring-cyan-400/50 hover:shadow-2xl group">
+        <div class="text-white text-[clamp(1.1rem,2vw,1.25rem)] font-semibold flex items-center justify-center gap-2.5 mb-3">
+          <!-- Save (Floppy) -->
+          <svg class="w-7 h-7 md:w-8 md:h-8 transition-transform group-hover:scale-110" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M6 3h9l3 3v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M8 3h5v5H8z" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M8 21v-6h8v6" stroke="currentColor" stroke-width="1.5"/>
+          </svg>
+          <span>บันทึกอัตโนมัติ</span>
+        </div>
+        <p class="text-white/80 text-[clamp(0.9rem,1.8vw,1rem)] leading-relaxed">เซฟข้อมูลอัตโนมัติระหว่างพิมพ์<br class="hidden sm:inline" /> ลดโอกาสข้อมูลสูญหาย</p>
+      </div>
+      <div class="glass rounded-xl p-6 md:p-7 text-center h-full transition-all duration-300 hover:ring-2 hover:ring-purple-400/50 hover:shadow-2xl group">
+        <div class="text-white text-[clamp(1.1rem,2vw,1.25rem)] font-semibold flex items-center justify-center gap-2.5 mb-3">
+          <!-- Offline (Cloud with slash) -->
+          <svg class="w-7 h-7 md:w-8 md:h-8 transition-transform group-hover:scale-110" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M8 18H7a4 4 0 1 1 0-8c.4-2.9 2.9-5 6-5a6 6 0 0 1 6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            <path d="M3 3l18 18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+          <span>ใช้งานได้แม้ออฟไลน์</span>
+        </div>
+        <p class="text-white/80 text-[clamp(0.9rem,1.8vw,1rem)] leading-relaxed">รองรับการทำงานออฟไลน์<br class="hidden sm:inline" /> และซิงก์เมื่อกลับมาออนไลน์</p>
+      </div>
+      <div class="glass rounded-xl p-6 md:p-7 text-center h-full transition-all duration-300 hover:ring-2 hover:ring-blue-400/50 hover:shadow-2xl group">
+        <div class="text-white text-[clamp(1.1rem,2vw,1.25rem)] font-semibold flex items-center justify-center gap-2.5 mb-3">
+          <!-- Recovery (Rotate arrows) -->
+          <svg class="w-7 h-7 md:w-8 md:h-8 transition-transform group-hover:scale-110" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M21 12a9 9 0 1 1-3-6.7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            <path d="M21 3v6h-6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span>กู้คืนฉุกเฉิน</span>
+        </div>
+        <p class="text-white/80 text-[clamp(0.9rem,1.8vw,1rem)] leading-relaxed">ระบบยืนยันและดำเนินการต่อ<br class="hidden sm:inline" />รายการที่ค้าง</p>
+      </div>
+      <div class="glass rounded-xl p-6 md:p-7 text-center h-full transition-all duration-300 hover:ring-2 hover:ring-green-400/50 hover:shadow-2xl group">
+        <div class="text-white text-[clamp(1.1rem,2vw,1.25rem)] font-semibold flex items-center justify-center gap-2.5 mb-3">
+          <!-- Secure Sheets (Shield with check) -->
+          <svg class="w-7 h-7 md:w-8 md:h-8 transition-transform group-hover:scale-110" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M12 3l7 3v6c0 5-3.3 9-7 9s-7-4-7-9V6l7-3z" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M9.5 12.5l2 2 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span>ส่งขึ้นชีตอย่างปลอดภัย</span>
+        </div>
+        <p class="text-white/80 text-[clamp(0.9rem,1.8vw,1rem)] leading-relaxed">เชื่อมต่อกับ Google Sheets<br class="hidden sm:inline" /> ผ่าน API และจัดเก็บสำรอง</p>
+      </div>
+    </div>
+
+    
+  </section>
+
+  <!-- Shift Selector (Mobile-Optimized) -->
+  <section id="shift" class="mx-4 mt-10 mb-10">
+    <div class="glass shift-section rounded-2xl ring-1 ring-white/15 shadow-xl overflow-hidden">
+      <!-- Header Section -->
+      <div class="shift-header text-center py-6 md:py-7">
+        <div class="flex items-center justify-center gap-2.5 mb-2.5">
+          <svg class="w-7 h-7 md:w-8 md:h-8 text-white/90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          <h2 class="shift-title text-white/90 text-[clamp(1.3rem,2.5vw,1.5rem)] font-semibold">เลือกกะสำหรับใช้งาน</h2>
+        </div>
+        <p class="shift-subtitle text-white/70 text-[clamp(0.95rem,2vw,1.05rem)] mt-1">คลิกเพื่อเข้าสู่ระบบบันทึกข้อมูล</p>
+      </div>
+      
+      <!-- Buttons Section - Professional Layout -->
+      <div class="shift-buttons px-4 md:px-8 pb-6 md:pb-10">
+        <!-- Desktop: 3-Column Grid | Mobile: Stack -->
+        <div class="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5">
+          
+          <!-- Shift A Button -->
+          <a href="./ปรับ script PD2_Shift-A_V4.0/index.html" 
+             class="group relative glass rounded-xl p-6 md:p-7 text-center h-full transition-all duration-300 hover:ring-2 hover:ring-emerald-400/60 hover:shadow-2xl hover:shadow-emerald-500/30 hover:scale-[1.02] active:scale-[0.98] no-underline">
+            <div class="flex flex-col items-center justify-center gap-3.5">
+              <!-- Icon -->
+              <div class="w-14 h-14 md:w-16 md:h-16 rounded-xl bg-gradient-to-br from-emerald-400 to-green-500 flex items-center justify-center shadow-lg shadow-emerald-500/25 group-hover:shadow-emerald-500/50 group-hover:scale-110 transition-all duration-300 relative">
+                <span class="text-3xl md:text-4xl font-black text-white relative z-10" style="font-family: 'Kanit', sans-serif; text-shadow: 0 2px 6px rgba(0,0,0,0.2);">A</span>
+                <!-- Glow effect -->
+                <div class="absolute inset-0 rounded-xl bg-gradient-to-br from-emerald-300/30 to-green-400/30 blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+              </div>
+              
+              <!-- Text Content -->
+              <div class="text-center space-y-2">
+                <h3 class="text-white text-base md:text-lg font-semibold tracking-tight">บันทึกข้อมูล</h3>
+                <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/20 backdrop-blur-sm border border-emerald-400/30 text-emerald-100 font-medium text-sm md:text-base">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                  <span>กะ A</span>
+                </div>
+              </div>
+              
+              <!-- Arrow -->
+              <div class="absolute bottom-4 right-4 w-7 h-7 rounded-full bg-emerald-400/20 backdrop-blur-sm border border-emerald-400/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transform translate-x-2 group-hover:translate-x-0 transition-all duration-300">
+                <svg class="w-3.5 h-3.5 text-emerald-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M9 5l7 7-7 7"/>
+                </svg>
+              </div>
+            </div>
+          </a>
+          
+          <!-- Shift B Button -->
+          <a href="./ปรับ script PD2_Shift-B_V4.0/index.html" 
+             class="group relative glass rounded-xl p-6 md:p-7 text-center h-full transition-all duration-300 hover:ring-2 hover:ring-rose-400/60 hover:shadow-2xl hover:shadow-rose-500/30 hover:scale-[1.02] active:scale-[0.98] no-underline">
+            <div class="flex flex-col items-center justify-center gap-3.5">
+              <!-- Icon -->
+              <div class="w-14 h-14 md:w-16 md:h-16 rounded-xl bg-gradient-to-br from-rose-400 to-red-500 flex items-center justify-center shadow-lg shadow-rose-500/25 group-hover:shadow-rose-500/50 group-hover:scale-110 transition-all duration-300 relative">
+                <span class="text-3xl md:text-4xl font-black text-white relative z-10" style="font-family: 'Kanit', sans-serif; text-shadow: 0 2px 6px rgba(0,0,0,0.2);">B</span>
+                <!-- Glow effect -->
+                <div class="absolute inset-0 rounded-xl bg-gradient-to-br from-rose-300/30 to-red-400/30 blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+              </div>
+              
+              <!-- Text Content -->
+              <div class="text-center space-y-2">
+                <h3 class="text-white text-base md:text-lg font-semibold tracking-tight">บันทึกข้อมูล</h3>
+                <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-rose-500/20 backdrop-blur-sm border border-rose-400/30 text-rose-100 font-medium text-sm md:text-base">
+                  <span class="w-1.5 h-1.5 rounded-full bg-rose-400 animate-pulse"></span>
+                  <span>กะ B</span>
+                </div>
+              </div>
+              
+              <!-- Arrow -->
+              <div class="absolute bottom-4 right-4 w-7 h-7 rounded-full bg-rose-400/20 backdrop-blur-sm border border-rose-400/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transform translate-x-2 group-hover:translate-x-0 transition-all duration-300">
+                <svg class="w-3.5 h-3.5 text-rose-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M9 5l7 7-7 7"/>
+                </svg>
+              </div>
+            </div>
+          </a>
+          
+          <!-- Report Button -->
+          <a href="./link google sheet/index.html" 
+             class="group relative glass rounded-xl p-6 md:p-7 text-center h-full transition-all duration-300 hover:ring-2 hover:ring-violet-400/60 hover:shadow-2xl hover:shadow-violet-500/30 hover:scale-[1.02] active:scale-[0.98] no-underline">
+            <div class="flex flex-col items-center justify-center gap-3.5">
+              <!-- Icon -->
+              <div class="w-14 h-14 md:w-16 md:h-16 rounded-xl bg-gradient-to-br from-violet-400 to-purple-500 flex items-center justify-center shadow-lg shadow-violet-500/25 group-hover:shadow-violet-500/50 group-hover:scale-110 transition-all duration-300 relative">
+                <svg class="w-7 h-7 md:w-8 md:h-8 text-white relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
+                </svg>
+                <!-- Glow effect -->
+                <div class="absolute inset-0 rounded-xl bg-gradient-to-br from-violet-300/30 to-purple-400/30 blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+              </div>
+              
+              <!-- Text Content -->
+              <div class="text-center space-y-2">
+                <h3 class="text-white text-base md:text-lg font-semibold tracking-tight">ดูรายงาน</h3>
+                <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-violet-500/20 backdrop-blur-sm border border-violet-400/30 text-violet-100 font-medium text-sm md:text-base">
+                  <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M10 12a2 2 0 100-4 2 2 0 000 4z"/>
+                    <path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd"/>
+                  </svg>
+                  <span>รายงาน</span>
+                </div>
+              </div>
+              
+              <!-- Arrow -->
+              <div class="absolute bottom-4 right-4 w-7 h-7 rounded-full bg-violet-400/20 backdrop-blur-sm border border-violet-400/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transform translate-x-2 group-hover:translate-x-0 transition-all duration-300">
+                <svg class="w-3.5 h-3.5 text-violet-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M9 5l7 7-7 7"/>
+                </svg>
+              </div>
+            </div>
+          </a>
+          
+          <!-- Dashboard Button -->
+          <a href="./production-dashboard/dashboard.html" 
+             class="group relative glass rounded-xl p-6 md:p-7 text-center h-full transition-all duration-300 hover:ring-2 hover:ring-cyan-400/60 hover:shadow-2xl hover:shadow-cyan-500/30 hover:scale-[1.02] active:scale-[0.98] no-underline">
+            <div class="flex flex-col items-center justify-center gap-3.5">
+              <!-- Icon -->
+              <div class="w-14 h-14 md:w-16 md:h-16 rounded-xl bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center shadow-lg shadow-cyan-500/25 group-hover:shadow-cyan-500/50 group-hover:scale-110 transition-all duration-300 relative">
+                <svg class="w-7 h-7 md:w-8 md:h-8 text-white relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                </svg>
+                <!-- Glow effect -->
+                <div class="absolute inset-0 rounded-xl bg-gradient-to-br from-cyan-300/30 to-blue-400/30 blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+              </div>
+              
+              <!-- Text Content -->
+              <div class="text-center space-y-2">
+                <h3 class="text-white text-base md:text-lg font-semibold tracking-tight">สรุปผลผลิต</h3>
+                <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-cyan-500/20 backdrop-blur-sm border border-cyan-400/30 text-cyan-100 font-medium text-sm md:text-base">
+                  <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/>
+                  </svg>
+                  <span>ภาพรวม</span>
+                </div>
+              </div>
+              
+              <!-- Arrow -->
+              <div class="absolute bottom-4 right-4 w-7 h-7 rounded-full bg-cyan-400/20 backdrop-blur-sm border border-cyan-400/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transform translate-x-2 group-hover:translate-x-0 transition-all duration-300">
+                <svg class="w-3.5 h-3.5 text-cyan-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M9 5l7 7-7 7"/>
+                </svg>
+              </div>
+            </div>
+          </a>
+          
+        </div>
+      </div>
+    </div>
+  </section>
+
+  
+
+  <!-- Note: Iframe removed - using direct navigation for better mobile UX (no double scroll) -->
+  </main>
+  <!-- Footer -->
+  <footer class="mx-4 mb-8 mt-12">
+    <div class="glass rounded-xl px-6 py-4 text-center border border-white/10 shadow-lg">
+      <div class="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-white/70 text-xs md:text-sm font-medium tracking-wide">
+        <span>© 2026 Production PD2</span>
+        <span class="text-white/40">•</span>
+        <span>Unified Production Console v6.00</span>
+        <span class="text-white/40">•</span>
+        <span class="text-white/60">Developed & Designed by <span class="text-cyan-300 font-semibold">ZP1048</span></span>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Toast -->
+  <!-- Notifications container (pre-created so Tailwind JIT includes classes used by pd2-notify.js) -->
+  <!-- mobile responsive fix: constrain width and nudge position on small screens -->
+  <div id="notifications" class="fixed top-2 right-2 sm:top-4 sm:right-4 z-50 space-y-2 max-w-[92vw] sm:max-w-none hidden" aria-hidden="true" role="region" aria-label="การแจ้งเตือนระบบ"></div>
+
+  
+
+  <!-- mobile responsive fix: constrain toast width and offsets on small screens -->
+  <div id="toast" role="status" aria-live="polite" aria-atomic="true" class="fixed top-2 left-2 sm:top-4 sm:left-4 z-[100] px-4 py-2 rounded-lg glass text-white/95 text-sm shadow-lg opacity-0 pointer-events-none transition-opacity duration-300 text-left max-w-[92vw] sm:max-w-xs">
+    
+  </div>
+
+  <script>
+    // Simplified navigation - no iframe, direct links only
+    (function(){
+      // No button handlers needed - using native <a> navigation
+  let frame = document.getElementById('shiftFrame');
+  // Hero buttons removed per request
+      const toast = document.getElementById('toast');
+  // Simple cache-busting token so GH Pages picks up latest subpages
+  const CACHE_VER = '20250922a1';
+  const withVer = (p) => `${encodeURI(p)}${p.includes('?') ? '&' : '?'}v=${CACHE_VER}`;
+
+  // Lightweight debug logger for troubleshooting. Non-invasive.
+  // It simply writes to console.debug with a PD2 prefix.
+  const PD2Log = (...args) => { try { console.debug('[PD2]', ...args); } catch (_) {} };
+
+      // Ensure the root page URL also carries a cache-busting token to avoid CDN-stale HTML on revisits
+      (function ensureRootCacheBust(){
+        try {
+          const u = new URL(location.href);
+          if (u.searchParams.get('cb') !== CACHE_VER) {
+            u.searchParams.set('cb', CACHE_VER);
+            history.replaceState(null, '', u.toString());
+          }
+        } catch (_) { /* no-op */ }
+      })();
+
+      // Launch auth gate early (non-invasive) — blocks UI until session exists
+      // Maintainer note:
+      // - The login overlay (PD2Auth) appears automatically on first visit because there is no
+      //   sessionStorage['neuroAuth'] yet. After a successful login it is stored with a TTL.
+      // - To force login again, click "ออกจากระบบ" (logout) or clear site data.
+      // - Session TTL is defined inside login V2.0's auth.js (SESSION_TTL_MS); adjust there as needed.
+      try {
+        const mount = () => {
+          try {
+            if (window.PD2Auth && typeof PD2Auth.mountLoginGate === 'function' && !PD2Auth.isAuthed()) {
+              PD2Auth.mountLoginGate({ loginPath: './login V2.0/forms/neumorphism/index.html' });
+            }
+          } catch(_) {}
+        };
+        if (document.readyState === 'complete' || document.readyState === 'interactive') {
+          setTimeout(mount, 0);
+        } else {
+          document.addEventListener('DOMContentLoaded', mount, { once: true, passive: true });
+        }
+      } catch (_) {}
+
+      // group for shared effects/helpers
+  const pills = [btnA, btnB, btnReport].filter(Boolean);
+
+      function showToast(message) {
+        if (!toast) return;
+        toast.textContent = message;
+        toast.classList.remove('opacity-0', 'pointer-events-none');
+        toast.classList.add('opacity-100');
+        clearTimeout(showToast._t);
+        showToast._t = setTimeout(() => {
+          toast.classList.add('opacity-0', 'pointer-events-none');
+          toast.classList.remove('opacity-100');
+        }, 1800);
+      }
+
+      // Logout: clear session and require fresh login via overlay gate
+      (function(){
+        const btn = document.getElementById('pd2LogoutBtn');
+        if (!btn) return;
+        btn.addEventListener('click', () => {
+          try { if (window.PD2Auth && typeof PD2Auth.logout === 'function') PD2Auth.logout(); } catch(_){}
+          showToast('ออกจากระบบแล้ว');
+          // Mount login overlay immediately so user must login again
+          try {
+            if (window.PD2Auth && typeof PD2Auth.mountLoginGate === 'function') {
+              PD2Auth.mountLoginGate({ loginPath: './login V2.0/forms/neumorphism/index.html' });
+            }
+          } catch(_){}
+        });
+      })();
+
+  function setActive(btnActive /*, ..._restIgnored */) {
+        // Toggle state exclusively among all pills (A, B, Report)
+        pills.forEach(btn => {
+          if (!btn) return;
+          const isActive = btn === btnActive;
+          btn.classList.toggle('active', isActive);
+          btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+        });
+      }
+
+      // Shared session-only lists for cross-iframe sync
+      const SHARED = { machines: [], fabricSizes: [
+        // Merged + updated (2025-09-17) – ordering by first two leading digits ascending, then logically grouped; mixed/non-pure numeric prefixes at end
+        "1425800",
+        "1621720SMFX",
+        "1625800",
+        "1625800SM",
+        "1725800",
+        "1825800SM",
+        "1921720",
+        "19251000SM",
+        "1925800",
+        "1925800SM",
+        "2021720UV",
+        "2021750",
+        "2021850UV",
+        "20251000",
+        "2025650",
+        "2025700",
+        "2025800",
+        "2025800SM",
+        "2025800SMN",
+        "2025850",
+        "2121670SM",
+        "2125650",
+        "2125700",
+        "2125800",
+        "2221940",
+        "23211125120SMFX",
+        "23211125130",
+        "2321112514051",
+        "2321112512551",
+        "2321750",
+        "2325650",
+        "2325800SM",
+        "2421112512551",
+        "2625650",
+        "262575051",
+        "2625800",
+        "2625850SM",
+        "2825850",
+        "1R042325650",
+        "FCL022325650",
+        "SCL0223211125",
+        "scl052325650",
+        "test2025800"
+      ], employees: [] };
+      const withSafeStr = (v) => (v == null ? '' : String(v).trim());
+
+  // Debounced broadcast to prevent excessive postMessage calls
+  let broadcastTimer = null;
+  function broadcastShared(targetWin) {
+        const msg = { type: 'PD2_SYNC_CUSTOM', payload: {
+          machines: SHARED.machines.slice(),
+          fabricSizes: SHARED.fabricSizes.slice(),
+          employees: SHARED.employees.slice()
+        }};
+        PD2Log('broadcastShared ->', { targetWin: !!targetWin, counts: { m: SHARED.machines.length, f: SHARED.fabricSizes.length, e: SHARED.employees.length } });
+        const allowedOrigin = (function(){ try { return location.origin; } catch(_) { return '*'; }})();
+        
+        const doBroadcast = () => {
+          if (targetWin) {
+            try { targetWin.postMessage(msg, allowedOrigin); } catch(err) { PD2Log('broadcastShared.postMessage.error', err); }
+            return;
+          }
+          document.querySelectorAll('iframe').forEach(ifr => {
+            try { ifr.contentWindow?.postMessage(msg, allowedOrigin); } catch(err) { PD2Log('broadcastShared.postMessage.error', err); }
+          });
+        };
+        
+        // If targeting specific window, send immediately; otherwise debounce
+        if (targetWin) {
+          doBroadcast();
+        } else {
+          clearTimeout(broadcastTimer);
+          broadcastTimer = setTimeout(doBroadcast, 100);
+        }
+      }
+
+      function upsertShared(kind, data) {
+        if (kind === 'machine') {
+          const v = withSafeStr(data?.value);
+          if (v && !SHARED.machines.includes(v)) { SHARED.machines.push(v); PD2Log('upsertShared.machine', v); }
+        } else if (kind === 'fabric') {
+          const v = withSafeStr(data?.value);
+          if (v && !SHARED.fabricSizes.includes(v)) { SHARED.fabricSizes.push(v); PD2Log('upsertShared.fabric', v); }
+        } else if (kind === 'employee') {
+          const id = withSafeStr(data?.id), name = withSafeStr(data?.name);
+          if (id && name && !SHARED.employees.some(e => e.id === id)) { SHARED.employees.push({ id, name }); PD2Log('upsertShared.employee', { id, name }); }
+        }
+      }
+
+      window.addEventListener('message', (ev) => {
+        const m = ev?.data;
+        if (!m || typeof m !== 'object') return;
+        PD2Log('message.recv', m && m.type, { origin: ev.origin });
+        // Only accept messages from the active iframe for privileged operations
+        const fromActiveFrame = (function(){
+          try { return ev.source === frame.contentWindow; } catch(_) { return false; }
+        })();
+        if (fromActiveFrame && m.type === 'PD2_ADD_CUSTOM' && m.category) {
+          upsertShared(m.category, m.data);
+          broadcastShared();
+        } else if (fromActiveFrame && m.type === 'PD2_REQUEST_SYNC') {
+          broadcastShared(ev.source);
+        } else if (m.type === 'PD2_CENTERED_SUCCESS') {
+          try {
+            const count = typeof m.count === 'number' ? m.count : 0;
+            if (window.PD2NotifyCenteredSuccess) {
+              window.PD2NotifyCenteredSuccess(count);
+            } else if (window.PD2Notify) {
+              window.PD2Notify('บันทึกข้อมูลสำเร็จ: ทั้งหมด '+count+' รายการ','success');
+            }
+          } catch(_){ }
+        }
+      });
+
+      // Robust navigation controller to prevent UI freeze when switching modules
+  const loadingEl = document.getElementById('frameLoading');
+      const loadingLabelEl = document.getElementById('frameLoadingLabel');
+  const navState = { busy: false, token: 0, timer: null, retry: 0, pendingTarget: null, startedAt: 0, autoRecoveryAttempts: 0 };
+  let currentModule = null; // 'A' | 'B' | 'REPORT'
+  // Multi-iframe cache (can be disabled via ?nocache=1 for fallback safety or debugging)
+  const searchParams = (() => { try { return new URL(location.href).searchParams; } catch(_) { return new URLSearchParams(); } })();
+  // Default to single-iframe (most stable). Enable multi-iframe explicitly with ?multiframe=1
+  const MULTIFRAME = searchParams.get('multiframe') === '1';
+  const BASE_NO_CACHE_MODE = !MULTIFRAME; // true => single iframe mode by default
+  let NO_CACHE_OVERRIDE = null; // null=use base; true=force single; false=force multi
+  function isNoCacheMode(){ return NO_CACHE_OVERRIDE === null ? BASE_NO_CACHE_MODE : NO_CACHE_OVERRIDE; }
+  if (isNoCacheMode()) { console.info('[PD2_NAV] NO_CACHE_MODE active - using single iframe navigation'); }
+  const frameCache = {}; // { A: HTMLIFrameElement, ... } (suppressed when isNoCacheMode() is true)
+  const FRAME_CACHE_LIMIT = 3; // ถ้าเกินจะลบตัวที่ไม่ใช้งานนานสุด
+  const frameUseOrder = []; // LRU tracking
+
+  function touchFrameOrder(key){
+    if (isNoCacheMode()) return; // skip LRU in no-cache mode
+    const idx = frameUseOrder.indexOf(key);
+    if (idx !== -1) frameUseOrder.splice(idx,1);
+    frameUseOrder.push(key);
+    if (frameUseOrder.length > FRAME_CACHE_LIMIT) {
+      const evict = frameUseOrder.shift();
+      if (evict && frameCache[evict] && evict !== currentModule) {
+        try { frameCache[evict].remove(); } catch(_){ }
+        delete frameCache[evict];
+        console.info('[PD2_NAV] evict', evict);
+      }
+    }
+  }
+  const baseFrame = frame; // original placeholder iframe
+
+  function getOrCreateFrame(target) {
+    if (isNoCacheMode()) {
+      // Always reuse single base frame
+      return baseFrame;
+    }
+    if (frameCache[target]) { touchFrameOrder(target); return frameCache[target]; }
+    const ifr = Object.keys(frameCache).length === 0 && baseFrame && !baseFrame.dataset.bound
+      ? baseFrame
+      : document.createElement('iframe');
+    if (!ifr.parentNode) baseFrame.parentNode.appendChild(ifr);
+    ifr.className = 'w-full h-full border-0 absolute inset-0';
+    ifr.style.display = 'none';
+    ifr.setAttribute('data-module', target);
+    ifr.title = 'Shift Frame ' + target;
+    ifr.dataset.bound = '1';
+    frameCache[target] = ifr;
+    touchFrameOrder(target);
+    return ifr;
+  }
+
+  function showFrame(target) {
+    if (!isNoCacheMode()) {
+      Object.values(frameCache).forEach(f => { f.style.display = 'none'; });
+    }
+    const f = getOrCreateFrame(target);
+    if (!isNoCacheMode()) {
+      f.style.display = 'block';
+    }
+    frame = f;
+    return f;
+  }
+
+      function setNavDisabled(disabled) {
+        pills.forEach(b => { if (!b) return; b.disabled = disabled; });
+      }
+      function showLoading(label) {
+        if (loadingLabelEl) loadingLabelEl.textContent = label || 'กำลังโหลดโมดูล...';
+        if (loadingEl) loadingEl.classList.remove('loading-hidden');
+      }
+      function hideLoading() {
+        if (loadingEl) {
+          loadingEl.classList.add('loading-hidden');
+          // Force display none as fallback
+          try { loadingEl.style.display = 'none'; } catch(_){}
+          setTimeout(() => { try { loadingEl.style.display = ''; } catch(_){} }, 100);
+        }
+      }
+      function pathFor(target) {
+        if (target === 'A') return './ปรับ script PD2_Shift-A_V4.0/index.html';
+        if (target === 'B') return './ปรับ script PD2_Shift-B_V4.0/index.html';
+        if (target === 'REPORT') return './link google sheet/index.html';
+        return './บันทึกข้อมูลกะ A/index.html';
+      }
+      function buttonFor(target) {
+        return target === 'A' ? btnA : target === 'B' ? btnB : btnReport;
+      }
+      function updateHash(target) {
+        try {
+          const u = new URL(location.href);
+          if (target === 'A') { u.hash = '#shift=A'; }
+          else if (target === 'B') { u.hash = '#shift=B'; }
+          else if (target === 'REPORT') { u.hash = '#report'; }
+          history.replaceState(null, '', u.toString());
+        } catch(_){}
+      }
+      function navigateTo(target, opts) {
+        const options = Object.assign({ initial:false }, opts);
+  if (!frame) { PD2Log('navigateTo.abort.no-frame', target); return; }
+        // If selecting the same module and not forcing, ignore to prevent unnecessary reloads
+        if (!options.force && currentModule === target) {
+          return;
+        }
+        // Rapid switching handling:
+        // If a navigation is in-flight, we don't just ignore. We either interrupt (if target already cached & loaded)
+        // or queue the last requested target to auto-run after current load completes.
+        if (navState.busy && !options.force) {
+          const cachedWhileBusy = frameCache[target];
+          if (cachedWhileBusy && cachedWhileBusy.dataset.loaded === '1') {
+            // Interrupt current slow load and switch immediately to cached target
+            console.info('[PD2_NAV] interrupt-cache-switch', target);
+            try { clearTimeout(navState.timer); } catch(_){}
+            // Invalidate previous navigation token so its load/ready handlers become stale no-ops
+            navState.token += 1;
+            navState.busy = false;
+            navState.retry = 0;
+            navState.pendingTarget = null;
+            hideLoading();
+            setNavDisabled(false);
+            // Fast path identical to cache-hit logic below (duplicated for clarity inside interrupt scenario)
+            const startInt = Date.now();
+            showFrame(target);
+            currentModule = target;
+            setActive(buttonFor(target));
+            updateHash(target);
+            console.info('[PD2_NAV] cache-hit', target, { elapsedMs: Date.now() - startInt, interrupted: true });
+            if (!options.initial) {
+              showToast(target === 'A' ? 'สลับไปยังกะ A แล้ว' : target === 'B' ? 'สลับไปยังกะ B แล้ว' : 'เปิดหน้ารายงานแล้ว');
+            }
+            // Broadcast without setTimeout wrapper (already handled by debounce)
+            try { broadcastShared(cachedWhileBusy.contentWindow); } catch(_){ }
+            return;
+          }
+          // Queue latest desired target
+          navState.pendingTarget = target;
+          setActive(buttonFor(target)); // Optimistically reflect user's latest intent
+          console.info('[PD2_NAV] queued', target);
+          return;
+        }
+  PD2Log('navigateTo.start', target, opts);
+
+  // If we already have a cached loaded iframe for this module, switch instantly (no network / reload)
+  const cached = (!isNoCacheMode()) ? frameCache[target] : null;
+  if (!isNoCacheMode() && cached && cached.dataset.loaded === '1' && !options.force) {
+    const start = Date.now();
+    showFrame(target);
+    currentModule = target;
+    setActive(buttonFor(target));
+    setNavDisabled(false);
+    updateHash(target);
+    hideLoading();
+    console.info('[PD2_NAV] cache-hit', target, { elapsedMs: Date.now() - start });
+    if (!options.initial) {
+      showToast(target === 'A' ? 'สลับไปยังกะ A แล้ว' : target === 'B' ? 'สลับไปยังกะ B แล้ว' : 'เปิดหน้ารายงานแล้ว');
+    }
+    // Broadcast shared state into the (now visible) iframe to ensure sync
+    try { broadcastShared(cached.contentWindow); } catch(_){}
+    return;
+  }
+
+  // Slow path: first load for this module
+  navState.busy = true; navState.token += 1; const myToken = navState.token; navState.retry = 0; navState.startedAt = Date.now();
+        clearTimeout(navState.timer);
+        const btn = buttonFor(target);
+        setActive(btn);
+        setNavDisabled(true);
+        if (!options.initial) document.getElementById('workbench')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  showLoading(target === 'A' ? 'กำลังโหลด กะ A...' : target === 'B' ? 'กำลังโหลด กะ B...' : 'กำลังโหลด รายงาน...');
+        updateHash(target);
+
+        // Prepare (or create) iframe for this navigation
+  const targetFrame = showFrame(target);
+  try { targetFrame.dataset.navToken = String(myToken); } catch(_){}
+        // Early readiness polling: if onload/PD2_READY lost but DOM becomes interactive/complete, finalize quickly
+        (function earlyPoll(tok, mod, ifr){
+          let attempts = 0;
+          const max = 40; // ~4s @100ms (reduced timeout)
+          function tick(){
+            if (tok !== navState.token) return; // stale
+            if (!navState.busy) return; // already finished
+            try {
+              const doc = ifr.contentDocument || ifr.contentWindow && ifr.contentWindow.document;
+              if (doc && (doc.readyState === 'interactive' || doc.readyState === 'complete')) {
+                // Basic heuristic: ensure some body content exists (even minimal) or substantial HTML rendered
+                const hasBody = !!doc.body;
+                const childCount = hasBody && doc.body.children ? doc.body.children.length : 0;
+                const htmlLen = hasBody ? (doc.body.innerHTML || '').length : 0;
+                if (hasBody && (childCount >= 1 || htmlLen > 200)) {
+                  console.info('[PD2_NAV] early-poll-finalize', mod, { token: tok, readyState: doc.readyState });
+                  try { ifr.dataset.loaded = '1'; } catch(_){ }
+                  navState.busy = false; setNavDisabled(false); hideLoading(); navState.retry = 0;
+                  currentModule = mod;
+                  try { broadcastShared(ifr.contentWindow); } catch(_){ }
+                  if (navState.pendingTarget && navState.pendingTarget !== currentModule) {
+                    const nxt = navState.pendingTarget; navState.pendingTarget = null; navigateTo(nxt);
+                  }
+                  return;
+                }
+              }
+            } catch(_){ }
+            attempts++;
+            if (attempts < max && navState.busy && tok === navState.token) {
+              setTimeout(tick, 100);
+            } else if (attempts >= max && navState.busy && tok === navState.token) {
+              // Force cleanup if early poll maxed out
+              console.warn('[PD2_NAV] early-poll timeout, forcing cleanup', mod);
+              navState.busy = false; setNavDisabled(false); hideLoading();
+            }
+          }
+          setTimeout(tick, 120);
+        })(myToken, target, targetFrame);
+
+  const onLoad = () => {
+          // Stale load event from previous navigation? Ignore.
+          if (myToken !== navState.token) return;
+          if (targetFrame.dataset.navToken && targetFrame.dataset.navToken !== String(myToken)) return;
+          PD2Log('navigateTo.onload', target, { token: myToken });
+          try {
+            const now = Date.now();
+            const start = window.__pd2_nav_start || now;
+            const elapsed = now - start;
+            console.info('[PD2_NAV] onload', target, { token: myToken, elapsedMs: elapsed });
+          } catch(_){}
+          try { targetFrame.dataset.loaded = '1'; } catch(_){}
+          clearTimeout(navState.timer);
+          try { window.removeEventListener('message', onReadyMessage); } catch(_){}
+          navState.busy = false; setNavDisabled(false); hideLoading(); navState.retry = 0;
+          currentModule = target;
+          // sync lists to the freshly loaded iframe (debounced internally)
+            try { broadcastShared(targetFrame.contentWindow); } catch(_){ }
+            // Apply mobile-only scroll lock inside iframe to prevent horizontal panning
+            try { applyMobileScrollLockToIframe(targetFrame?.contentDocument || targetFrame?.contentWindow?.document); } catch(_){ }
+          // toasts per module
+          if (!options.initial) {
+            showToast(target === 'A' ? 'สลับไปยังกะ A แล้ว' : target === 'B' ? 'สลับไปยังกะ B แล้ว' : 'เปิดหน้ารายงานแล้ว');
+          }
+          // Dequeue any pending target (last user intent) and navigate immediately
+          if (navState.pendingTarget && navState.pendingTarget !== currentModule) {
+            const nextTarget = navState.pendingTarget;
+            navState.pendingTarget = null;
+            console.info('[PD2_NAV] dequeue-after-load', nextTarget);
+            setTimeout(() => navigateTo(nextTarget), 0);
+          }
+        };
+        const onErrorTimeout = () => {
+          if (myToken !== navState.token) return;
+          PD2Log('navigateTo.timeout', target, { token: myToken, retry: navState.retry });
+          if (navState.retry < 2) {
+            navState.retry++;
+            // progressive backoff
+            const wait = navState.retry === 1 ? 350 : 700;
+            if (loadingLabelEl) loadingLabelEl.textContent = 'โหลดช้า กำลังลองใหม่ ('+navState.retry+')...';
+            try { frame.removeAttribute('src'); } catch(_){ }
+            setTimeout(() => navigateTo(target, { force: true }), wait);
+            return;
+          }
+          // Give control back but schedule background auto-recovery if user doesn't change
+          try { window.removeEventListener('message', onReadyMessage); } catch(_){ }
+          navState.busy = false; setNavDisabled(false); hideLoading();
+          showToast('โหลดช้า กดเปลี่ยนโมดูลใหม่ หรือระบบจะลองกู้เอง');
+          // schedule auto recovery (only if still same module desired and not cache loaded)
+          if (!frameCache[target] || frameCache[target].dataset.loaded !== '1') {
+            scheduleAutoRecovery(target);
+          }
+        };
+
+        // Attach one-time load listener per navigation
+  targetFrame.addEventListener('load', onLoad, { once: true, passive: true });
+        // Add error handler to catch iframe loading failures
+        const onError = () => {
+          if (myToken !== navState.token) return;
+          console.error('[PD2_NAV] iframe load error', target, { token: myToken });
+          clearTimeout(navState.timer);
+          navState.busy = false; setNavDisabled(false); hideLoading(); navState.retry = 0;
+          showToast('ไม่สามารถโหลดโมดูลได้ กรุณาลองอีกครั้ง');
+          try { window.removeEventListener('message', onReadyMessage); } catch(_){}
+        };
+        targetFrame.addEventListener('error', onError, { once: true, passive: true });
+        // Also accept an early 'PD2_READY' postMessage from the iframe when the iframe's UI is painted
+  const onReadyMessage = (ev) => {
+          try {
+            const m = ev && ev.data;
+            if (!m || typeof m !== 'object') return;
+            // Compare message source to the specific targetFrame for this navigation (not the mutable global 'frame')
+            const expectedWin = (function(){ try { return targetFrame && targetFrame.contentWindow; } catch(_) { return null; } })();
+            if (m.type === 'PD2_READY' && expectedWin && ev.source === expectedWin) {
+              // make sure it's for the current navigation token
+              if (myToken !== navState.token) return;
+              if (targetFrame.dataset.navToken && targetFrame.dataset.navToken !== String(myToken)) return;
+              PD2Log('navigateTo.readyMsg', target, { token: myToken });
+              try {
+                const now = Date.now();
+                const start = window.__pd2_nav_start || now;
+                const elapsed = now - start;
+                console.info('[PD2_NAV] PD2_READY', target, { token: myToken, elapsedMs: elapsed });
+              } catch(_){}
+              try { targetFrame.dataset.loaded = '1'; } catch(_){}
+              try { clearTimeout(navState.timer); } catch(_){ }
+              navState.busy = false; setNavDisabled(false); hideLoading(); navState.retry = 0; navState.autoRecoveryAttempts = 0;
+              currentModule = target;
+              // Broadcast once to the loaded iframe (debounced internally)
+              try { broadcastShared(targetFrame.contentWindow); } catch(_){ }
+              // Apply mobile-only scroll lock inside iframe to prevent horizontal panning
+              try { applyMobileScrollLockToIframe(targetFrame?.contentDocument || targetFrame?.contentWindow?.document); } catch(_){ }
+              if (!options.initial) {
+                try { showToast(target === 'A' ? 'สลับไปยังกะ A แล้ว' : target === 'B' ? 'สลับไปยังกะ B แล้ว' : 'เปิดหน้ารายงานแล้ว'); } catch(_){}
+              }
+              // remove listener (one-time)
+              try { window.removeEventListener('message', onReadyMessage); } catch(_){}
+              // If user queued another target while we were loading, jump there now.
+              if (navState.pendingTarget && navState.pendingTarget !== currentModule) {
+                const nextTarget = navState.pendingTarget;
+                navState.pendingTarget = null;
+                console.info('[PD2_NAV] dequeue-after-ready', nextTarget);
+                setTimeout(() => navigateTo(nextTarget), 0);
+              }
+            }
+          } catch(_){}
+        };
+  window.addEventListener('message', onReadyMessage);
+    // Kick off navigation (instrumentation: record start time for switch latency)
+  try {
+    var __pd2_nav_token = (window.__pd2_nav_token || 0) + 1;
+    window.__pd2_nav_token = __pd2_nav_token;
+    window.__pd2_nav_start = Date.now();
+    PD2Log('navigateTo.setSrc', withVer(pathFor(target)), { token: __pd2_nav_token, start: window.__pd2_nav_start });
+    console.info('[PD2_NAV] start', target, { token: __pd2_nav_token, start: window.__pd2_nav_start });
+  } catch (_) {}
+  targetFrame.src = withVer(pathFor(target));
+        // Watchdog timeout to recover UI even if load doesn't fire (reduced to 5s)
+  navState.timer = setTimeout(onErrorTimeout, 5000);
+      }
+
+      // Wire buttons to new navigator
+        // Wire buttons to new navigator with lightweight debounce to avoid rapid-fire races
+        const __pd2_clickGate = { last: 0 };
+        function withDebounce(handler, waitMs) {
+          const wait = typeof waitMs === 'number' ? waitMs : 220;
+          return (...args) => {
+            const now = Date.now();
+            if (now - __pd2_clickGate.last < wait) return;
+            __pd2_clickGate.last = now;
+            handler(...args);
+          };
+        }
+        btnA.addEventListener('click', withDebounce(() => navigateTo('A')));
+        btnB.addEventListener('click', withDebounce(() => navigateTo('B')));
+        if (btnReport) btnReport.addEventListener('click', withDebounce(() => navigateTo('REPORT')));
+      // System Reset Button (Deep Clean & Reload)
+      (function(){
+        const wrap = document.getElementById('pd2ResetWrap');
+        const btn = document.getElementById('pd2ResetBtn');
+        const menu = document.getElementById('pd2ResetMenu');
+        if(!btn || !menu) return;
+
+        function toggleMenu(force){
+          const show = force !== undefined ? force : menu.classList.contains('hidden');
+          menu.classList.toggle('hidden', !show);
+        }
+        btn.addEventListener('click', (e) => { e.stopPropagation(); toggleMenu(); }, { passive: false });
+        // Use passive listener for click-outside since it doesn't preventDefault
+        document.addEventListener('click', (e) => { if(!wrap.contains(e.target)) toggleMenu(false); }, { passive: true, capture: true });
+
+        async function performReset(mode){
+          if (navState.busy) { showToast('กำลังโหลดอยู่ รอสักครู่...'); return; }
+          const modeLabel = mode === 'partial' ? 'บางส่วน' : 'ทั้งหมด';
+          console.info('[PD2_RESET] start', { mode });
+          showToast('รีเซ็ต'+modeLabel+'...');
+          // 1. Always clear iframe cache
+          try {
+            Object.keys(frameCache).forEach(k => { try { frameCache[k].remove(); } catch(_){}; delete frameCache[k]; });
+            console.info('[PD2_RESET] iframe cache cleared');
+          } catch(err){ console.warn('[PD2_RESET] iframe cache error', err); }
+          // 2. localStorage: partial keeps user form data (values) but clears meta caches; full clears PD2 keys
+          try {
+            const keys = []; for (let i=0;i<localStorage.length;i++){ const k = localStorage.key(i); if(k) keys.push(k); }
+            const PD2_KEYS = keys.filter(k => /pd2|shift|wage|machine|fabric|employee|errorLog|productionData/i.test(k));
+            if (mode === 'full') {
+              PD2_KEYS.forEach(k => { try { localStorage.removeItem(k); } catch(_){ } });
+              console.info('[PD2_RESET] localStorage removed (full)', PD2_KEYS);
+            } else {
+              // partial: เก็บข้อมูลทุกอย่างที่ผู้ใช้กรอก (shift, wage, machine, fabric, employee, productionData ฯลฯ)
+              // ลบเฉพาะ key ที่เป็น log / error / debug / cache เพื่อลดสิ่งค้าง
+              const REMOVE_PAT = /(errorlog|_log|logs?|cache|_cache|debug)/i;
+              const toRemove = PD2_KEYS.filter(k => REMOVE_PAT.test(k));
+              toRemove.forEach(k => { try { localStorage.removeItem(k); } catch(_){ } });
+              console.info('[PD2_RESET] localStorage removed (partial, only log/cache keys)', toRemove);
+            }
+          } catch(err){ console.warn('[PD2_RESET] ls error', err); }
+          // 3. CacheStorage & SW always cleared (both modes) → ลดความสับสนเรื่องไฟล์เก่า
+          try { if (window.caches && caches.keys) { const names = await caches.keys(); await Promise.all(names.map(n => caches.delete(n))); console.info('[PD2_RESET] CacheStorage cleared', names); } } catch(err){ console.warn('[PD2_RESET] cacheStorage error', err); }
+          try { if (navigator.serviceWorker) { const regs = await navigator.serviceWorker.getRegistrations(); await Promise.all(regs.map(r => r.unregister())); console.info('[PD2_RESET] service workers unregistered'); } } catch(err){ console.warn('[PD2_RESET] sw unregister error', err); }
+          // 4. Reset nav state
+          try { navState.pendingTarget = null; navState.busy = false; navState.token += 1; } catch(_){ }
+          // 5. Reload (full: add resetts; partial: add softts param)
+          setTimeout(() => {
+            const u = new URL(location.href);
+            u.searchParams.set(mode === 'full' ? 'resetts' : 'softts', Date.now());
+            location.replace(u.toString());
+          }, 120);
+        }
+
+        menu.querySelectorAll('.pd2-reset-item').forEach(item => {
+          item.addEventListener('click', (e) => {
+            const mode = item.getAttribute('data-mode');
+            toggleMenu(false);
+            performReset(mode);
+          });
+        });
+      })();
+
+      // CTA buttons on overview cards
+  // (no hero CTA handlers)
+
+      // Deep-link support: .../index.html#shift=B or #report -> open initially using navigator
+      const hash = (location.hash || '').toLowerCase();
+      if (hash.includes('shift=b')) {
+        PD2Log('initialHash', 'B');
+        navigateTo('B', { initial: true });
+      } else if (hash.includes('report')) {
+        PD2Log('initialHash', 'REPORT');
+        navigateTo('REPORT', { initial: true });
+      }
+
+      // Prefetch / warm-up module HTML in idle time to reduce perceived load delay
+      function prefetchModules() {
+        if (isNoCacheMode()) return; // skip prefetching in single-frame mode
+        try {
+          const targets = ['A','B','REPORT'];
+          const run = () => {
+            if (document.hidden) { return; }
+            targets.forEach(t => {
+              if (t === currentModule) return; // skip already loaded
+              const p = withVer(pathFor(t));
+              PD2Log('prefetch.attempt', t, p);
+              fetch(p, { method: 'GET', credentials: 'same-origin', cache: 'force-cache' })
+                .then(r => { if (r.ok) PD2Log('prefetch.ok', t, { status: r.status }); else PD2Log('prefetch.non-2xx', t, { status: r.status }); })
+                .catch(e => PD2Log('prefetch.err', t, { error: String(e) }));
+            });
+          };
+          if ('requestIdleCallback' in window) {
+            requestIdleCallback(() => run(), { timeout: 2000 });
+          } else {
+            setTimeout(run, 1500);
+          }
+        } catch (err) { PD2Log('prefetch.fail', String(err)); }
+      }
+
+      // Trigger prefetch after initial navigation settled
+      setTimeout(prefetchModules, 800);
+      // Idle preload: instantiate hidden iframes for modules not yet visited so first switch is instant
+      function idlePreloadFrames(){
+        if (isNoCacheMode()) return; // no multi-frame preload
+        try {
+          const modules = ['A','B','REPORT'];
+          const needed = modules.filter(m => !frameCache[m]);
+          if (!needed.length) return;
+          needed.forEach(m => {
+            // Skip currently active (already created by navigate)
+            if (m === currentModule) return;
+            const ifr = getOrCreateFrame(m);
+            // Mark as preloading
+            ifr.dataset.preloading = '1';
+            const url = withVer(pathFor(m));
+            ifr.addEventListener('load', () => {
+              ifr.dataset.loaded = '1';
+              delete ifr.dataset.preloading;
+              console.info('[PD2_NAV] preload.loaded', m);
+              // Broadcast shared state so that when user switches it's already populated
+              try { broadcastShared(ifr.contentWindow); } catch(_){ }
+            }, { once: true, passive: true });
+            ifr.src = url;
+            console.info('[PD2_NAV] preload.start', m, url);
+          });
+        } catch(err) { console.debug('[PD2_NAV] preload.error', err); }
+      }
+      if ('requestIdleCallback' in window) {
+        requestIdleCallback(() => idlePreloadFrames(), { timeout: 4000 });
+      } else {
+        setTimeout(idlePreloadFrames, 1800);
+      }
+      // Respond to manual hash changes to keep iframe in sync
+      window.addEventListener('hashchange', () => {
+        try {
+          const hh = (location.hash || '').toLowerCase();
+          if (hh.includes('shift=b')) { navigateTo('B'); }
+          else if (hh.includes('shift=a')) { navigateTo('A'); }
+          else if (hh.includes('report')) { navigateTo('REPORT'); }
+        } catch(_) {}
+      }, { passive: true });
+
+      // Cleanup timers/listeners on page hide to avoid any stuck states on return
+      const cleanupNav = () => { 
+        try { 
+          clearTimeout(navState.timer); 
+          clearTimeout(broadcastTimer);
+        } catch(_){} 
+      };
+      window.addEventListener('pagehide', cleanupNav, { passive: true });
+      window.addEventListener('beforeunload', cleanupNav, { passive: true });
+      
+      // Emergency cleanup when page becomes visible (fixes stuck loading)
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden && navState.busy) {
+          const elapsed = Date.now() - (navState.startedAt || Date.now());
+          if (elapsed > 3000) { // If loading for more than 3s when returning to page
+            console.warn('[PD2_NAV] emergency-cleanup on visibility change', { elapsed });
+            navState.busy = false; setNavDisabled(false); hideLoading();
+            clearTimeout(navState.timer);
+          }
+        }
+      }, { passive: true });
+
+      // Watchdog: prevent permanent freeze if iframe load events never fire (e.g., network stall, blocked resource)
+      setInterval(() => {
+        try {
+          if (!navState.busy) return;
+          const elapsed = Date.now() - (navState.startedAt || Date.now());
+          if (elapsed > 12000) { // 12s hard timeout
+            console.warn('[PD2_NAV] watchdog-hard-timeout', { elapsed, token: navState.token, pending: navState.pendingTarget });
+            try { clearTimeout(navState.timer); } catch(_){}
+            navState.busy = false; setNavDisabled(false); hideLoading();
+            // Auto-degrade session to single-iframe mode for maximum stability
+            try {
+              if (!isNoCacheMode()) {
+                NO_CACHE_OVERRIDE = true;
+                // Drop extra iframes and keep base frame only
+                try {
+                  Object.keys(frameCache).forEach(k => {
+                    const ifr = frameCache[k];
+                    if (ifr !== baseFrame) { try { ifr.remove(); } catch(_){} }
+                    delete frameCache[k];
+                  });
+                  frameCache[currentModule || 'A'] = baseFrame;
+                } catch(_){}
+                // Ensure base frame is visible and reload current target for a clean state
+                try {
+                  baseFrame.className = 'w-full h-full border-0 absolute inset-0';
+                  baseFrame.style.display = 'block';
+                  frame = baseFrame;
+                  const tgt = currentModule || 'A';
+                  const url = withVer(pathFor(tgt));
+                  setTimeout(() => { try { baseFrame.src = url; } catch(_){} }, 50);
+                  showToast('สลับเป็นโหมดเสถียร (Single iframe)');
+                  console.info('[PD2_NAV] degraded-to-single-iframe');
+                } catch(_){}
+              }
+            } catch(_){}
+            // If we have a pending target, try that next
+            if (navState.pendingTarget) {
+              const tgt = navState.pendingTarget; navState.pendingTarget = null;
+              setTimeout(() => navigateTo(tgt, { force: true }), 0);
+            }
+            return;
+          }
+          if (elapsed > 6500) { // soft recovery attempt
+            // If current target frame actually loaded DOM (readyState) but events missed, finalize manually
+            const activeFrame = frame;
+            if (activeFrame && activeFrame.contentDocument && activeFrame.contentDocument.readyState !== 'loading') {
+              console.warn('[PD2_NAV] watchdog-soft-complete', { elapsed, token: navState.token });
+              navState.busy = false; setNavDisabled(false); hideLoading(); navState.retry = 0;
+              try { activeFrame.dataset.loaded = '1'; } catch(_){}
+              if (navState.pendingTarget) {
+                const tgt2 = navState.pendingTarget; // fixed previously broken identifier split across lines
+                navState.pendingTarget = null;
+                setTimeout(() => navigateTo(tgt2), 0);
+              }
+            }
+          }
+        } catch(_){}
+      }, 1500);
+      // Auto recovery scheduler: if navigation gave up, try a limited number of background reloads unless user interacted
+      function scheduleAutoRecovery(target){
+        try {
+          if (navState.autoRecoveryAttempts >= 3) return;
+          navState.autoRecoveryAttempts++;
+          const attemptNo = navState.autoRecoveryAttempts;
+          const delay = attemptNo * 2500; // 2.5s, 5s, 7.5s
+          console.info('[PD2_NAV] auto-recover-scheduled', target, { attempt: attemptNo, delay });
+          setTimeout(() => {
+            // If user already switched or module loaded, abort
+            if (currentModule === target || (frameCache[target] && frameCache[target].dataset.loaded === '1')) {
+              console.info('[PD2_NAV] auto-recover-abort', target, { attempt: attemptNo });
+              return;
+            }
+            console.info('[PD2_NAV] auto-recover-attempt', target, { attempt: attemptNo });
+            navigateTo(target, { force: true });
+          }, delay);
+        } catch(_){}
+      }
+      
+        // Fancy shine effect: track mouse to set --x hotspot for pills
+  pills.forEach(btn => {
+          btn.addEventListener('pointermove', (e) => {
+            const rect = btn.getBoundingClientRect();
+            const x = ((e.clientX - rect.left) / rect.width) * 100; // percent across
+            btn.style.setProperty('--x', x + '%');
+          });
+          btn.addEventListener('pointerleave', () => btn.style.removeProperty('--x'));
+  });
+
+  // initial navigation via controller (defaults to A)
+  if (!frame.src || frame.src === 'about:blank') {
+    navigateTo('A', { initial: true });
+  }
+
+  // Helper: Inject mobile-only CSS and touch handler into iframe to lock scrolling to vertical on small screens
+  // Optimized with guard to prevent redundant injections
+  const __scrollLockApplied = new WeakSet();
+  function applyMobileScrollLockToIframe(doc){
+    try {
+      if (!doc) return;
+      // Guard: skip if already applied
+      if (__scrollLockApplied.has(doc)) return;
+      const isMobile = window.matchMedia && window.matchMedia('(max-width: 767px)').matches;
+      if (!isMobile) return; // only on small screens
+      const head = doc.head || doc.getElementsByTagName('head')[0] || doc.documentElement;
+      if (!head) return;
+
+      // Inject CSS once
+      if (!doc.getElementById('pd2-mobile-scroll-lock')) {
+        const style = doc.createElement('style');
+        style.id = 'pd2-mobile-scroll-lock';
+        style.type = 'text/css';
+  style.textContent = `
+@media (max-width: 767px) {
+  html, body {
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+    overscroll-behavior-x: contain;
+    touch-action: pan-y;
+    -webkit-overflow-scrolling: touch;
+  }
+  body, main, .container, .wrapper, .content, .module, .inner, .inner-module, .page, .sheet {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  /* Prevent flex/grid children from overflowing horizontally */
+  main > *, .container > *, .wrapper > *, .content > *, .module > *, .inner > *, .inner-module > *, .page > *, .sheet > * {
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+    word-wrap: break-word;
+  }
+  img { max-width: 100%; height: auto; display: block; }
+  table { width: 100%; table-layout: fixed; word-break: break-word; }
+  /* Encourage vertical scrolling only within common containers */
+  .inner-module, .module, main, .content, .wrapper, .page, .sheet {
+    overflow-x: hidden !important;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+  }
+  /* Opt-in horizontal scrolling areas when necessary */
+  [data-allow-x] {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-x !important;
+  }
+}
+        `;
+        head.appendChild(style);
+        __scrollLockApplied.add(doc);
+      }
+
+      // Attach a conservative touch handler to block predominantly horizontal pans
+      if (!doc.__pd2ScrollLockAttached) {
+        doc.__pd2ScrollLockAttached = true;
+        let startX = 0, startY = 0;
+        doc.addEventListener('touchstart', function(e){
+          const t = e.touches && e.touches[0];
+          if (!t) return;
+          startX = t.clientX; startY = t.clientY;
+        }, { passive: true });
+        doc.addEventListener('touchmove', function(e){
+          try {
+            if (!window.matchMedia || !window.matchMedia('(max-width: 767px)').matches) return; // guard on resize
+            if (!e.touches || e.touches.length !== 1) return;
+            const t = e.touches[0];
+            const dx = Math.abs(t.clientX - startX);
+            const dy = Math.abs(t.clientY - startY);
+            // Opt-out: allow horizontal gestures inside elements explicitly marked
+            const allowX = e.target && e.target.closest && e.target.closest('[data-allow-x]');
+            if (!allowX && dx > dy) {
+              e.preventDefault(); // block horizontal pan
+            }
+          } catch(_) { /* no-op */ }
+        }, { passive: false });
+      }
+    } catch(_) { /* no-op */ }
+  }
+        
+  // Mobile viewport adjustments
+  // Fixes for mobile browser UI (dynamic URL bars, virtual keyboard) by
+  // sizing iframe and nudging fixed elements using visualViewport where available.
+  function adjustForMobile() {
+    try {
+      const header = document.querySelector('header');
+      const headerH = header ? header.getBoundingClientRect().height : 112;
+      const vv = window.visualViewport;
+      const vh = vv ? vv.height : window.innerHeight;
+      const offsetTop = vv ? vv.offsetTop : 0;
+
+      // Set iframe & wrapper height to fit the visible viewport below header
+      if (frame) {
+        const targetH = Math.max(120, vh - headerH - 8); // keep a sane min-height
+        frame.style.height = targetH + 'px';
+        const wrap = document.querySelector('.frame-wrap');
+        if (wrap) wrap.style.height = targetH + 'px';
+      }
+
+      // Move notification container / toast away from virtual keyboard or unsafe areas
+      const notes = document.getElementById('notifications');
+      if (notes) {
+        notes.style.top = (16 + Math.max(0, offsetTop)) + 'px';
+        notes.style.right = '12px';
+      }
+      const toast = document.getElementById('toast');
+      if (toast) toast.style.top = (16 + Math.max(0, offsetTop)) + 'px';
+    } catch (_) { /* no-op */ }
+  }
+
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', adjustForMobile, { passive: true });
+    window.visualViewport.addEventListener('scroll', adjustForMobile, { passive: true });
+  } else {
+    window.addEventListener('resize', adjustForMobile, { passive: true });
+    window.addEventListener('orientationchange', adjustForMobile, { passive: true });
+  }
+  window.addEventListener('load', adjustForMobile, { passive: true, once: true });
+  setTimeout(adjustForMobile, 400);
+    })();
+  </script>
+  <!-- Fallback: ensure pd2-notify.js is available at runtime -->
+  <script>
+    (function(){
+      try {
+        if (typeof window.PD2Notify === 'function') {
+          console.debug('PD2Notify already present');
+          return;
+        }
+        console.debug('PD2Notify missing — attempting dynamic load of ./pd2-notify.js');
+        var s = document.createElement('script');
+        s.src = './pd2-notify.js';
+        s.onload = function(){ console.debug('pd2-notify.js loaded dynamically, PD2Notify typeof:', typeof window.PD2Notify); if(typeof window.PD2Notify==='function') window.PD2Notify('Notification module loaded','success'); };
+        s.onerror = function(e){ console.error('Failed to dynamically load pd2-notify.js', e); };
+        document.head.appendChild(s);
+      } catch (err) { try { console.error('pd2-notify fallback error', err); } catch(_){} }
+    })();
+  </script>
+      <!-- Dev: websocket client to trigger iframe reload on file changes -->
+      <script>
+        (function(){
+          try {
+            const WS_URL = 'ws://127.0.0.1:35729';
+            const socket = new WebSocket(WS_URL);
+            socket.addEventListener('open', () => console.debug('[dev-ws] connected to', WS_URL));
+            socket.addEventListener('message', (ev) => {
+              try {
+                const m = JSON.parse(ev.data || '{}');
+                if (m && m.type === 'reload') {
+                  console.debug('[dev-ws] reload event, path=', m.path);
+                  try {
+                    const frame = document.getElementById('shiftFrame');
+                    if (frame && frame.contentWindow) {
+                      // force reload of iframe content (cache-bust with timestamp)
+                      const src = frame.src.split('?')[0];
+                      frame.src = src + '?v=' + Date.now();
+                    } else {
+                      // fallback: reload parent
+                      location.reload();
+                    }
+                  } catch(err) { console.error('[dev-ws] reload failed', err); }
+                }
+              } catch(_){}
+            });
+            socket.addEventListener('close', () => console.debug('[dev-ws] disconnected'));
+          } catch(_){}
+        })();
+      </script>
+      <!-- Initialize Auth Gate: mount login overlay if not authenticated -->
+      <script>
+        (function(){
+          try {
+            let retryCount = 0;
+            const maxRetries = 50; // Try for up to 5 seconds (50 * 100ms)
+            
+            // Wait for DOMContentLoaded and pd2-auth-bridge.js to be fully loaded
+            function initAuthGate(){
+              retryCount++;
+              
+              // Check if all required scripts are loaded
+              const pd2AuthReady = (typeof window.PD2Auth !== 'undefined' && typeof window.PD2Auth.mountLoginGate === 'function');
+              const formAuthReady = (typeof window.FormAuth !== 'undefined' && typeof window.FormAuth.authenticate === 'function');
+              
+              if (pd2AuthReady && formAuthReady) {
+                console.log('[PD2] Auth scripts loaded successfully');
+                console.log('[PD2] Initializing auth gate...');
+                
+                window.PD2Auth.mountLoginGate({
+                  loginPath: './login V2.0/forms/neumorphism/index.html',
+                  onUnlock: function(session){
+                    console.log('[PD2] Auth unlocked, session:', session);
+                    try {
+                      if (window.PD2Notify) {
+                        const username = (session && session.user) ? session.user : '';
+                        window.PD2Notify('ยินดีต้อนรับ ' + username, 'success');
+                      }
+                    } catch(e){ console.error('[PD2] Notify error:', e); }
+                  }
+                });
+              } else {
+                if (retryCount >= maxRetries) {
+                  console.error('[PD2] Auth scripts failed to load after ' + maxRetries + ' attempts');
+                  console.error('[PD2] PD2Auth ready:', pd2AuthReady, '| FormAuth ready:', formAuthReady);
+                  alert('Authentication system failed to load. Please refresh the page.');
+                  return;
+                }
+                console.warn('[PD2] Waiting for auth scripts... (attempt ' + retryCount + '/' + maxRetries + ')');
+                console.warn('[PD2] PD2Auth ready:', pd2AuthReady, '| FormAuth ready:', formAuthReady);
+                setTimeout(initAuthGate, 100);
+              }
+            }
+            
+            // Initialize after a short delay to ensure scripts are loaded
+            setTimeout(initAuthGate, 200);
+          } catch(err){
+            console.error('[PD2] Auth gate init failed:', err);
+            alert('Authentication initialization error: ' + err.message);
+          }
+        })();
+      </script>
+      <!-- Register service worker to enable installation on supporting browsers -->
+      <script>
+        if ('serviceWorker' in navigator) {
+          window.addEventListener('load', () => {
+            navigator.serviceWorker.register('./sw.js').then(reg => {
+              console.debug('PD2: service worker registered', reg.scope);
+            }).catch(err => { console.debug('PD2: sw registration failed', err); });
+          });
+        }
+      </script>
+</body>
+</html

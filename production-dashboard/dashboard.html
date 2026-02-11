@@ -1,0 +1,1450 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="description" content="Dashboard สรุปยอดผลิตประจำวัน - แผนกผลิต 2">
+  <meta name="theme-color" content="#0f172a">
+  <title>Production Dashboard - สรุปยอดผลิตประจำวัน</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com/3.4.10"></script>
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@200;300;400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Chart.js for visualizations -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  
+  <style>
+    * { font-family: 'Kanit', sans-serif; }
+    
+    body {
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+      min-height: 100vh;
+    }
+    
+    .glass-card {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    }
+    
+    .gradient-header {
+      background: linear-gradient(135deg, #0ea5e9 0%, #3b82f6 50%, #6366f1 100%);
+    }
+    
+    .stat-card {
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    .stat-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+    }
+    
+    .loading-spinner {
+      border: 3px solid rgba(59, 130, 246, 0.2);
+      border-top-color: #3b82f6;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 0.8s linear infinite;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    
+    .fade-in {
+      animation: fadeIn 0.5s ease-in;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    /* Custom Select Styling */
+    select {
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%233b82f6'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 0.75rem center;
+      background-size: 1.25rem;
+      padding-right: 2.5rem;
+    }
+    
+    /* Table Styling */
+    .data-table {
+      border-collapse: separate;
+      border-spacing: 0;
+    }
+    
+    .data-table thead th {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    }
+    
+    .data-table tbody tr:hover {
+      background-color: rgba(59, 130, 246, 0.05);
+    }
+    
+    /* Number formatting */
+    .number-cell {
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0.02em;
+    }
+    
+    /* Expandable row styles */
+    .detail-row {
+      transition: all 0.3s ease-in-out;
+    }
+    
+    .detail-row.hidden {
+      max-height: 0;
+      opacity: 0;
+      overflow: hidden;
+    }
+    
+    .detail-row:not(.hidden) {
+      max-height: 500px;
+      opacity: 1;
+    }
+    
+    .detail-content {
+      animation: slideDown 0.3s ease-out;
+    }
+    
+    @keyframes slideDown {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    
+    .detail-item {
+      transition: transform 0.2s ease;
+    }
+    
+    .detail-item:hover {
+      transform: translateY(-2px);
+    }
+    
+    .expand-btn svg {
+      transition: transform 0.3s ease;
+    }
+    
+    /* Tab Styles */
+    .view-tab-btn {
+      background: white;
+      color: #6b7280;
+      border: 2px solid #e5e7eb;
+    }
+    
+    .view-tab-btn.active {
+      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+      color: white;
+      border-color: #2563eb;
+      box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.3);
+    }
+    
+    .view-tab-btn:hover:not(.active) {
+      background: #f3f4f6;
+      border-color: #d1d5db;
+    }
+  </style>
+</head>
+<body class="antialiased">
+  
+  <!-- Main Container -->
+  <div class="min-h-screen p-4 md:p-8">
+    <div class="max-w-7xl mx-auto space-y-6">
+      
+      <!-- Header -->
+      <header class="glass-card rounded-2xl overflow-hidden fade-in">
+        <div class="gradient-header px-6 md:px-8 py-6 md:py-8">
+          <div class="flex items-center gap-4 mb-3">
+            <div class="w-12 h-12 md:w-14 md:h-14 rounded-xl bg-white/20 flex items-center justify-center backdrop-blur-sm">
+              <svg class="w-7 h-7 md:w-8 md:h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+              </svg>
+            </div>
+            <div>
+              <h1 class="text-2xl md:text-4xl font-bold text-white">Production Dashboard</h1>
+              <p class="text-blue-100 text-sm md:text-base mt-1">ระบบสรุปยอดผลิตประจำวัน - แผนกผลิต 2</p>
+            </div>
+          </div>
+          
+          <!-- Date & Shift Selection -->
+          <div class="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <!-- Date Picker Shift A -->
+            <div class="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
+              <label class="block text-white/90 text-sm font-semibold mb-2">📅 วันที่ กะ A</label>
+              <input type="date" id="dateShiftA" 
+                     class="w-full px-4 py-2.5 rounded-lg bg-white/95 text-gray-900 font-medium border-2 border-transparent focus:border-blue-400 focus:outline-none transition-all">
+            </div>
+            
+            <!-- Date Picker Shift B -->
+            <div class="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
+              <label class="block text-white/90 text-sm font-semibold mb-2">📅 วันที่ กะ B</label>
+              <input type="date" id="dateShiftB" 
+                     class="w-full px-4 py-2.5 rounded-lg bg-white/95 text-gray-900 font-medium border-2 border-transparent focus:border-blue-400 focus:outline-none transition-all">
+            </div>
+            
+            <!-- Quick Select -->
+            <div class="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
+              <label class="block text-white/90 text-sm font-semibold mb-2">เลือกด่วน</label>
+              <select id="quickSelect" 
+                      class="w-full px-4 py-2.5 rounded-lg bg-white/95 text-gray-900 font-medium border-2 border-transparent focus:border-blue-400 focus:outline-none transition-all cursor-pointer">
+                <option value="">  เลือกรูปแบบ  </option>
+                <option value="today">วันนี้ (ทั้ง A & B)</option>
+                <option value="yesterday">เมื่อวาน (ทั้ง A & B)</option>
+                <option value="thisWeek">สัปดาห์นี้</option>
+                <option value="lastWeek">สัปดาห์ที่แล้ว</option>
+              </select>
+            </div>
+            
+            <!-- Load Button -->
+            <div class="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20 flex items-end">
+              <button id="loadDataBtn" 
+                      class="w-full px-6 py-2.5 rounded-lg bg-white text-blue-600 font-bold hover:bg-blue-50 active:scale-95 transition-all duration-200 flex items-center justify-center gap-2 shadow-lg">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                </svg>
+                <span>โหลดข้อมูล</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+      
+      <!-- Loading State -->
+      <div id="loadingState" class="hidden glass-card rounded-2xl p-12 text-center fade-in">
+        <div class="loading-spinner mx-auto mb-4"></div>
+        <p class="text-gray-600 text-lg font-medium">กำลังโหลดข้อมูล...</p>
+        <p class="text-gray-400 text-sm mt-2">โปรดรอสักครู่</p>
+      </div>
+      
+      <!-- Summary Cards -->
+      <div id="summaryCards" class="hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 fade-in">
+        <!-- Summary Date -->
+        <div class="glass-card rounded-2xl p-6 stat-card col-span-full">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center">
+              <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+              </svg>
+            </div>
+            <h2 class="text-2xl font-bold text-gray-900" id="summaryTitle">สรุปยอดผลิตประจำวัน</h2>
+          </div>
+        </div>
+        
+        <!-- Shift A Production -->
+        <div class="glass-card rounded-2xl p-6 stat-card border-l-4 border-emerald-500">
+          <div class="flex items-start justify-between mb-4">
+            <div>
+              <p class="text-gray-600 text-sm font-medium mb-1">ยอดทอ กะ A</p>
+              <p class="text-3xl font-bold text-gray-900 number-cell" id="productionShiftA">-</p>
+            </div>
+            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center">
+              <span class="text-white text-2xl font-black">A</span>
+            </div>
+          </div>
+          <div class="flex items-center gap-2 text-sm">
+            <span class="inline-flex items-center gap-1 text-emerald-600 font-semibold">
+              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 0l-3 3a1 1 0 001.414 1.414L9 9.414V13a1 1 0 102 0V9.414l1.293 1.293a1 1 0 001.414-1.414z" clip-rule="evenodd"/>
+              </svg>
+              <span id="productionShiftAChange">0%</span>
+            </span>
+            <span class="text-gray-500">จากเมื่อวาน</span>
+          </div>
+        </div>
+        
+        <!-- Shift B Production -->
+        <div class="glass-card rounded-2xl p-6 stat-card border-l-4 border-rose-500">
+          <div class="flex items-start justify-between mb-4">
+            <div>
+              <p class="text-gray-600 text-sm font-medium mb-1">ยอดทอ กะ B</p>
+              <p class="text-3xl font-bold text-gray-900 number-cell" id="productionShiftB">-</p>
+            </div>
+            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-rose-500 to-red-600 flex items-center justify-center">
+              <span class="text-white text-2xl font-black">B</span>
+            </div>
+          </div>
+          <div class="flex items-center gap-2 text-sm">
+            <span class="inline-flex items-center gap-1 text-rose-600 font-semibold">
+              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 0l-3 3a1 1 0 001.414 1.414L9 9.414V13a1 1 0 102 0V9.414l1.293 1.293a1 1 0 001.414-1.414z" clip-rule="evenodd"/>
+              </svg>
+              <span id="productionShiftBChange">0%</span>
+            </span>
+            <span class="text-gray-500">จากเมื่อวาน</span>
+          </div>
+        </div>
+        
+        <!-- Shift A Cutting -->
+        <div class="glass-card rounded-2xl p-6 stat-card border-l-4 border-blue-500">
+          <div class="flex items-start justify-between mb-4">
+            <div>
+              <p class="text-gray-600 text-sm font-medium mb-1">ยอดตัดม้วน กะ A</p>
+              <p class="text-3xl font-bold text-gray-900 number-cell" id="cuttingShiftA">-</p>
+            </div>
+            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
+              <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879M12 12L9.121 9.121m0 5.758a3 3 0 10-4.243 4.243 3 3 0 004.243-4.243zm0-5.758a3 3 0 10-4.243-4.243 3 3 0 004.243 4.243z"/>
+              </svg>
+            </div>
+          </div>
+          <div class="flex items-center gap-2 text-sm">
+            <span class="inline-flex items-center gap-1 text-blue-600 font-semibold">
+              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 0l-3 3a1 1 0 001.414 1.414L9 9.414V13a1 1 0 102 0V9.414l1.293 1.293a1 1 0 001.414-1.414z" clip-rule="evenodd"/>
+              </svg>
+              <span id="cuttingShiftAChange">0%</span>
+            </span>
+            <span class="text-gray-500">จากเมื่อวาน</span>
+          </div>
+        </div>
+        
+        <!-- Shift B Cutting -->
+        <div class="glass-card rounded-2xl p-6 stat-card border-l-4 border-violet-500">
+          <div class="flex items-start justify-between mb-4">
+            <div>
+              <p class="text-gray-600 text-sm font-medium mb-1">ยอดตัดม้วน กะ B</p>
+              <p class="text-3xl font-bold text-gray-900 number-cell" id="cuttingShiftB">-</p>
+            </div>
+            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
+              <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879M12 12L9.121 9.121m0 5.758a3 3 0 10-4.243 4.243 3 3 0 004.243-4.243zm0-5.758a3 3 0 10-4.243-4.243 3 3 0 004.243 4.243z"/>
+              </svg>
+            </div>
+          </div>
+          <div class="flex items-center gap-2 text-sm">
+            <span class="inline-flex items-center gap-1 text-violet-600 font-semibold">
+              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 0l-3 3a1 1 0 001.414 1.414L9 9.414V13a1 1 0 102 0V9.414l1.293 1.293a1 1 0 001.414-1.414z" clip-rule="evenodd"/>
+              </svg>
+              <span id="cuttingShiftBChange">0%</span>
+            </span>
+            <span class="text-gray-500">จากเมื่อวาน</span>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Data Table -->
+      <div id="dataTableSection" class="hidden glass-card rounded-2xl overflow-hidden fade-in">
+        <div class="px-6 py-5 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
+                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"/>
+                </svg>
+              </div>
+              <h2 class="text-xl font-bold text-gray-900">สรุปยอดทอตามรหัสผ้า</h2>
+            </div>
+            <button id="exportBtn" class="px-4 py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 active:scale-95 transition-all duration-200 flex items-center gap-2">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+              </svg>
+              <span>Export Excel</span>
+            </button>
+          </div>
+        </div>
+        
+        <!-- Tab Toggle for View Switching -->
+        <div class="px-6 py-6 border-b border-gray-200">
+          <div class="flex gap-4">
+            <button id="viewMachineBtn" class="view-tab-btn active px-6 py-3 rounded-lg font-semibold transition-all duration-200">
+              <span>สรุปแยกตามเครื่อง</span>
+            </button>
+            <button id="viewBrandBtn" class="view-tab-btn px-6 py-3 rounded-lg font-semibold transition-all duration-200">
+              <span>สรุปตามรหัสผ้า</span>
+            </button>
+          </div>
+        </div>
+        
+        <!-- Machine Level Table (Original View) -->
+        <div id="machineTableView" class="overflow-x-auto">
+          <table class="data-table w-full">
+            <thead>
+              <tr class="text-white">
+                <th class="px-6 py-4 text-left text-sm">ลำดับ</th>
+                <th class="px-6 py-4 text-left text-sm">รหัสผ้า</th>
+                <th class="px-6 py-4 text-right text-sm">ยอดทอ (เมตร)</th>
+                <th class="px-6 py-4 text-right text-sm">ยอดตัดม้วน (เมตร)</th>
+                <th class="px-6 py-4 text-center text-sm">รายละเอียด</th>
+              </tr>
+            </thead>
+            <tbody id="dataTableBody" class="bg-white divide-y divide-gray-200">
+              <!-- Data will be populated by JavaScript -->
+            </tbody>
+          </table>
+        </div>
+        
+        <!-- Brand Level Table (New View) -->
+        <div id="brandTableView" class="overflow-x-auto hidden">
+          <table class="data-table w-full">
+            <thead>
+              <tr class="text-white">
+                <th class="px-6 py-4 text-left text-sm whitespace-nowrap">ลำดับ</th>
+                <th class="px-6 py-4 text-left text-sm whitespace-nowrap">รหัสผ้า</th>
+                <th class="px-6 py-4 text-right text-sm whitespace-nowrap">ยอดทอ (เมตร)</th>
+                <th class="px-6 py-4 text-right text-sm whitespace-nowrap">ยอดตัดม้วน (เมตร)</th>
+                <th class="px-6 py-4 text-center text-sm whitespace-nowrap">จำนวนม้วน</th>
+                <th class="px-6 py-4 text-left text-sm whitespace-nowrap">หมายเหตุ</th>
+              </tr>
+            </thead>
+            <tbody id="brandTableBody" class="bg-white divide-y divide-gray-200">
+              <!-- Data will be populated by JavaScript -->
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+      
+      <!-- Empty State -->
+      <div id="emptyState" class="glass-card rounded-2xl p-12 text-center fade-in">
+        <div class="w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center">
+          <svg class="w-10 h-10 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
+        </div>
+        <h3 class="text-2xl font-bold text-gray-900 mb-2">ยินดีต้อนรับ</h3>
+        <p class="text-gray-600 text-lg">เลือกวันที่และกะเพื่อดูข้อมูลการผลิต</p>
+        <p class="text-gray-400 text-sm mt-2">กรุณาเลือกวันที่และคลิกปุ่ม "โหลดข้อมูล" เพื่อเริ่มต้น</p>
+      </div>
+      
+    </div>
+  </div>
+  
+  <!-- Static Data Import -->
+  <script src="./config.js"></script>
+  <script src="./data/brands_array.js"></script>
+  
+  <!-- Main Application Script -->
+  <script>
+    // Configuration - อ่านจาก config.js
+    // ตรวจสอบว่า config.js ถูก load แล้วหรือไม่
+    if (typeof API_URL === 'undefined') {
+      console.error('❌ config.js not loaded! Please check file path.');
+      alert('⚠️ ไม่พบไฟล์ config.js กรุณาตรวจสอบ');
+    }
+    
+    // ============================================
+    // 🚀 PERFORMANCE OPTIMIZATION SYSTEM v2.0
+    // Designed for 3-5 years operation
+    // ============================================
+    
+    // Configuration Constants
+    const CONFIG = {
+      VERSION: '2.0.0',
+      CACHE_DURATION: 5 * 60 * 1000, // 5 minutes
+      REQUEST_TIMEOUT: 30000, // 30 seconds
+      MAX_RETRIES: 3,
+      RETRY_DELAY: 1000, // Initial retry delay (exponential backoff)
+      CACHE_KEY_PREFIX: 'pd2_cache_',
+      CACHE_VERSION_KEY: 'pd2_cache_version'
+    };
+    
+    // Cache System - Memory + LocalStorage
+    class CacheManager {
+      constructor() {
+        this.memoryCache = new Map();
+        this.init();
+      }
+      
+      init() {
+        // Check cache version, clear if outdated
+        const cachedVersion = localStorage.getItem(CONFIG.CACHE_VERSION_KEY);
+        if (cachedVersion !== CONFIG.VERSION) {
+          console.log('🔄 Cache version mismatch, clearing old cache');
+          this.clearAll();
+          localStorage.setItem(CONFIG.CACHE_VERSION_KEY, CONFIG.VERSION);
+        }
+        
+        // Clean expired entries on init
+        this.cleanExpired();
+      }
+      
+      generateKey(dateA, dateB) {
+        return `${CONFIG.CACHE_KEY_PREFIX}${dateA}_${dateB}`;
+      }
+      
+      get(dateA, dateB) {
+        const key = this.generateKey(dateA, dateB);
+        
+        // Try memory cache first (fastest)
+        if (this.memoryCache.has(key)) {
+          const cached = this.memoryCache.get(key);
+          if (this.isValid(cached)) {
+            console.log('✅ Cache HIT (Memory):', key);
+            return cached.data;
+          } else {
+            this.memoryCache.delete(key);
+          }
+        }
+        
+        // Try localStorage (slower but persistent)
+        try {
+          const cached = localStorage.getItem(key);
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            if (this.isValid(parsed)) {
+              console.log('✅ Cache HIT (LocalStorage):', key);
+              // Promote to memory cache
+              this.memoryCache.set(key, parsed);
+              return parsed.data;
+            } else {
+              localStorage.removeItem(key);
+            }
+          }
+        } catch (error) {
+          console.warn('⚠️ LocalStorage read error:', error);
+        }
+        
+        console.log('❌ Cache MISS:', key);
+        return null;
+      }
+      
+      set(dateA, dateB, data) {
+        const key = this.generateKey(dateA, dateB);
+        const entry = {
+          data: data,
+          timestamp: Date.now(),
+          version: CONFIG.VERSION
+        };
+        
+        // Store in memory cache
+        this.memoryCache.set(key, entry);
+        
+        // Store in localStorage
+        try {
+          localStorage.setItem(key, JSON.stringify(entry));
+          console.log('💾 Cached:', key);
+        } catch (error) {
+          console.warn('⚠️ LocalStorage write error (quota exceeded?):', error);
+          // If quota exceeded, clear old entries
+          this.cleanOldest();
+        }
+      }
+      
+      isValid(entry) {
+        if (!entry || !entry.timestamp) return false;
+        const age = Date.now() - entry.timestamp;
+        return age < CONFIG.CACHE_DURATION;
+      }
+      
+      cleanExpired() {
+        // Clean memory cache
+        for (const [key, entry] of this.memoryCache.entries()) {
+          if (!this.isValid(entry)) {
+            this.memoryCache.delete(key);
+          }
+        }
+        
+        // Clean localStorage
+        try {
+          const keys = Object.keys(localStorage);
+          for (const key of keys) {
+            if (key.startsWith(CONFIG.CACHE_KEY_PREFIX)) {
+              const cached = JSON.parse(localStorage.getItem(key));
+              if (!this.isValid(cached)) {
+                localStorage.removeItem(key);
+              }
+            }
+          }
+        } catch (error) {
+          console.warn('⚠️ Cache cleanup error:', error);
+        }
+      }
+      
+      cleanOldest() {
+        try {
+          const entries = [];
+          const keys = Object.keys(localStorage);
+          
+          for (const key of keys) {
+            if (key.startsWith(CONFIG.CACHE_KEY_PREFIX)) {
+              const cached = JSON.parse(localStorage.getItem(key));
+              entries.push({ key, timestamp: cached.timestamp });
+            }
+          }
+          
+          // Sort by timestamp and remove oldest 25%
+          entries.sort((a, b) => a.timestamp - b.timestamp);
+          const toRemove = Math.ceil(entries.length * 0.25);
+          
+          for (let i = 0; i < toRemove; i++) {
+            localStorage.removeItem(entries[i].key);
+          }
+          
+          console.log(`🧹 Cleaned ${toRemove} oldest cache entries`);
+        } catch (error) {
+          console.warn('⚠️ cleanOldest error:', error);
+        }
+      }
+      
+      clearAll() {
+        this.memoryCache.clear();
+        
+        try {
+          const keys = Object.keys(localStorage);
+          for (const key of keys) {
+            if (key.startsWith(CONFIG.CACHE_KEY_PREFIX)) {
+              localStorage.removeItem(key);
+            }
+          }
+          console.log('🗑️ All cache cleared');
+        } catch (error) {
+          console.warn('⚠️ Cache clear error:', error);
+        }
+      }
+    }
+    
+    // Initialize Cache Manager
+    const cacheManager = new CacheManager();
+    
+    // State Management
+    const state = {
+      dateShiftA: null,
+      dateShiftB: null,
+      currentData: null,
+      isLoading: false,
+      requestController: null // For request cancellation
+    };
+    
+    // DOM Elements
+    const elements = {
+      dateShiftA: document.getElementById('dateShiftA'),
+      dateShiftB: document.getElementById('dateShiftB'),
+      quickSelect: document.getElementById('quickSelect'),
+      loadDataBtn: document.getElementById('loadDataBtn'),
+      loadingState: document.getElementById('loadingState'),
+      emptyState: document.getElementById('emptyState'),
+      summaryCards: document.getElementById('summaryCards'),
+      dataTableSection: document.getElementById('dataTableSection'),
+      dataTableBody: document.getElementById('dataTableBody'),
+      exportBtn: document.getElementById('exportBtn')
+    };
+    
+    // Utility Functions
+    function formatNumber(num) {
+      return num ? num.toLocaleString('th-TH') : '0';
+    }
+    
+    function formatDate(dateString) {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('th-TH', { 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+      });
+    }
+    
+    function getTodayDate() {
+      const today = new Date();
+      return today.toISOString().split('T')[0];
+    }
+    
+    function getYesterdayDate() {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      return yesterday.toISOString().split('T')[0];
+    }
+    
+    function showElement(el) {
+      el.classList.remove('hidden');
+    }
+    
+    function hideElement(el) {
+      el.classList.add('hidden');
+    }
+    
+    // UI State Management
+    function showLoading() {
+      hideElement(elements.emptyState);
+      hideElement(elements.summaryCards);
+      hideElement(elements.dataTableSection);
+      showElement(elements.loadingState);
+    }
+    
+    function showData() {
+      hideElement(elements.loadingState);
+      hideElement(elements.emptyState);
+      showElement(elements.summaryCards);
+      showElement(elements.dataTableSection);
+    }
+    
+    function showEmptyState() {
+      hideElement(elements.loadingState);
+      hideElement(elements.summaryCards);
+      hideElement(elements.dataTableSection);
+      showElement(elements.emptyState);
+    }
+    
+    // Mock Data Generator (Replace with actual API call)
+    function generateMockData() {
+      const brands = [
+        '1425800', '1825800SM', '1921720', '2021850', '2025800SM',
+        '2025800SMN', '2025850', '2121670SM', '2121670SMN', '2321750',
+        '2625800', '2625850SM', '2825850'
+      ];
+      
+      return {
+        summary: {
+          productionShiftA: 54903,
+          productionShiftB: 52795,
+          cuttingShiftA: 56688,
+          cuttingShiftB: 23640,
+          dateShiftA: state.dateShiftA,
+          dateShiftB: state.dateShiftB
+        },
+        details: brands.map((brand, index) => {
+          const productionA = Math.floor(Math.random() * 15000) + 500;
+          const productionB = Math.floor(Math.random() * 15000) + 500;
+          const cuttingA = Math.floor(Math.random() * 12500) + 500;
+          const cuttingB = Math.floor(Math.random() * 12500) + 500;
+          const meterStartA = Math.floor(Math.random() * 50000);
+          const meterEndA = meterStartA + Math.floor(Math.random() * 20000) + 1000;
+          const meterStartB = Math.floor(Math.random() * 50000);
+          const meterEndB = meterStartB + Math.floor(Math.random() * 20000) + 1000;
+          
+          return {
+            brand: brand,
+            production: productionA + productionB,
+            cutting: cuttingA + cuttingB,
+            machineNo: `M${(index + 1).toString().padStart(2, '0')}`,
+            meterStartA: meterStartA,
+            meterEndA: meterEndA,
+            cuttingLengthA: meterEndA - meterStartA,
+            meterStartB: meterStartB,
+            meterEndB: meterEndB,
+            cuttingLengthB: meterEndB - meterStartB
+          };
+        })
+      };
+    }
+    
+    // ============================================
+    // 🌐 ENHANCED API CALL WITH TIMEOUT + RETRY + CACHE
+    // ============================================
+    
+    /**
+     * Fetch with timeout support
+     */
+    async function fetchWithTimeout(url, timeout = CONFIG.REQUEST_TIMEOUT) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeout);
+      
+      try {
+        const response = await fetch(url, {
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        return response;
+      } catch (error) {
+        clearTimeout(timeoutId);
+        if (error.name === 'AbortError') {
+          throw new Error('Request timeout - เซิร์ฟเวอร์ตอบสนองช้า');
+        }
+        throw error;
+      }
+    }
+    
+    /**
+     * Retry logic with exponential backoff
+     */
+    async function fetchWithRetry(url, retries = CONFIG.MAX_RETRIES) {
+      let lastError;
+      
+      for (let attempt = 1; attempt <= retries; attempt++) {
+        try {
+          console.log(`🔄 Attempt ${attempt}/${retries}:`, url);
+          
+          const response = await fetchWithTimeout(url);
+          
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          }
+          
+          return await response.json();
+          
+        } catch (error) {
+          lastError = error;
+          console.warn(`⚠️ Attempt ${attempt} failed:`, error.message);
+          
+          // If not the last attempt, wait before retry (exponential backoff)
+          if (attempt < retries) {
+            const delay = CONFIG.RETRY_DELAY * Math.pow(2, attempt - 1);
+            console.log(`⏳ Retrying in ${delay}ms...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+          }
+        }
+      }
+      
+      // All retries failed
+      throw new Error(`Failed after ${retries} attempts: ${lastError.message}`);
+    }
+    
+    /**
+     * Main API Call with Cache + Timeout + Retry
+     */
+    async function fetchProductionData(dateA, dateB) {
+      try {
+        console.log('\n========================================');
+        console.log('🔄 Fetching Production Data');
+        console.log('========================================');
+        console.log('📅 Date A (Shift A):', dateA);
+        console.log('📅 Date B (Shift B):', dateB);
+        
+        // 🚀 STEP 1: Check cache first
+        const cached = cacheManager.get(dateA, dateB);
+        if (cached) {
+          console.log('⚡ Using cached data (no API call needed)');
+          console.log('========================================\n');
+          return cached;
+        }
+        
+        // 🚀 STEP 2: Fetch from API with timeout + retry
+        console.log('🌐 API URL:', API_URL);
+        const url = `${API_URL}?dateA=${dateA}&dateB=${dateB}`;
+        console.log('🔗 Full Request URL:', url);
+        
+        console.log('⏳ Sending request with timeout protection...');
+        const startTime = Date.now();
+        
+        const data = await fetchWithRetry(url);
+        
+        const duration = Date.now() - startTime;
+        console.log(`✅ Response received in ${duration}ms`);
+        
+        // 🚀 STEP 3: Validate response
+        console.log('📊 Response structure:', {
+          success: data.success,
+          hasData: !!data.data,
+          dataKeys: data.data ? Object.keys(data.data) : [],
+          timestamp: data.timestamp
+        });
+        
+        if (data.data && data.data.details) {
+          console.log('📊 Records found:', data.data.details.length);
+          console.log('🎯 Summary:', data.data.summary);
+        }
+        
+        if (!data.success) {
+          console.error('❌ API returned error:', data.error);
+          throw new Error(data.error || 'API returned error');
+        }
+        
+        // 🚀 STEP 4: Cache the result
+        cacheManager.set(dateA, dateB, data.data);
+        
+        console.log('========================================');
+        console.log('✅ Data fetch complete');
+        console.log('========================================\n');
+        
+        return data.data;
+        
+      } catch (error) {
+        console.error('\n========================================');
+        console.error('❌ Error fetching data');
+        console.error('========================================');
+        console.error('Error type:', error.name);
+        console.error('Error message:', error.message);
+        console.error('========================================\n');
+        
+        // User-friendly error message
+        let userMessage = '⚠️ ไม่สามารถโหลดข้อมูลได้\n\n';
+        
+        if (error.message.includes('timeout')) {
+          userMessage += '🕐 สาเหตุ: เซิร์ฟเวอร์ตอบสนองช้า\n\n';
+          userMessage += '💡 แนะนำ:\n';
+          userMessage += '- ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต\n';
+          userMessage += '- ลองใหม่อีกครั้งในอีกสักครู่\n';
+        } else if (error.message.includes('Failed after')) {
+          userMessage += '🔄 สาเหตุ: พยายามเชื่อมต่อหลายครั้งแล้วไม่สำเร็จ\n\n';
+          userMessage += '💡 แนะนำ:\n';
+          userMessage += '- ตรวจสอบว่า Google Apps Script ทำงานปกติ\n';
+          userMessage += '- ตรวจสอบ API URL ใน config.js\n';
+        } else {
+          userMessage += `📝 รายละเอียด: ${error.message}\n\n`;
+          userMessage += '💡 แนะนำ:\n';
+          userMessage += '- กด F12 เพื่อดู Console\n';
+          userMessage += '- ตรวจสอบ API URL ใน config.js\n';
+        }
+        
+        alert(userMessage);
+        throw error;
+      }
+    }
+    
+    // Render Summary Cards with REAL percentage changes
+    async function renderSummary(data) {
+      const { summary } = data;
+      
+      // Update title
+      const dateDisplay = summary.dateShiftA === summary.dateShiftB 
+        ? formatDate(summary.dateShiftA)
+        : `${formatDate(summary.dateShiftA)} - ${formatDate(summary.dateShiftB)}`;
+      
+      document.getElementById('summaryTitle').textContent = `สรุปยอดผลิตประจำวันที่ (${dateDisplay})`;
+      
+      // Update numbers
+      document.getElementById('productionShiftA').textContent = formatNumber(summary.productionShiftA);
+      document.getElementById('productionShiftB').textContent = formatNumber(summary.productionShiftB);
+      document.getElementById('cuttingShiftA').textContent = formatNumber(summary.cuttingShiftA);
+      document.getElementById('cuttingShiftB').textContent = formatNumber(summary.cuttingShiftB);
+      
+      // ✅ Calculate REAL percentage changes from yesterday's data
+      await calculateAndDisplayPercentageChanges(summary);
+    }
+    
+    /**
+     * Calculate real percentage changes by comparing with yesterday's data
+     */
+    async function calculateAndDisplayPercentageChanges(currentSummary) {
+      try {
+        // Calculate yesterday's date
+        const currentDate = new Date(currentSummary.dateShiftA || currentSummary.dateShiftB);
+        const yesterdayDate = new Date(currentDate);
+        yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+        const yesterdayStr = yesterdayDate.toISOString().split('T')[0];
+        
+        console.log(`📊 Calculating % change: ${yesterdayStr} → ${currentSummary.dateShiftA}`);
+        
+        // Fetch yesterday's data
+        const yesterdayData = await fetchProductionData(yesterdayStr, yesterdayStr);
+        
+        if (yesterdayData && yesterdayData.summary) {
+          const yesterday = yesterdayData.summary;
+          
+          // Calculate percentage changes
+          const prodAChange = calculatePercentageChange(yesterday.productionShiftA, currentSummary.productionShiftA);
+          const prodBChange = calculatePercentageChange(yesterday.productionShiftB, currentSummary.productionShiftB);
+          const cutAChange = calculatePercentageChange(yesterday.cuttingShiftA, currentSummary.cuttingShiftA);
+          const cutBChange = calculatePercentageChange(yesterday.cuttingShiftB, currentSummary.cuttingShiftB);
+          
+          // Update UI with real percentages
+          updatePercentageDisplay('productionShiftAChange', prodAChange);
+          updatePercentageDisplay('productionShiftBChange', prodBChange);
+          updatePercentageDisplay('cuttingShiftAChange', cutAChange);
+          updatePercentageDisplay('cuttingShiftBChange', cutBChange);
+          
+          console.log('✅ % Changes calculated:', { prodAChange, prodBChange, cutAChange, cutBChange });
+        } else {
+          // No data for yesterday - show N/A
+          console.log('⚠️ No data for yesterday, showing N/A');
+          document.getElementById('productionShiftAChange').textContent = 'N/A';
+          document.getElementById('productionShiftBChange').textContent = 'N/A';
+          document.getElementById('cuttingShiftAChange').textContent = 'N/A';
+          document.getElementById('cuttingShiftBChange').textContent = 'N/A';
+        }
+      } catch (error) {
+        console.error('❌ Error calculating % changes:', error);
+        // Show N/A on error
+        document.getElementById('productionShiftAChange').textContent = 'N/A';
+        document.getElementById('productionShiftBChange').textContent = 'N/A';
+        document.getElementById('cuttingShiftAChange').textContent = 'N/A';
+        document.getElementById('cuttingShiftBChange').textContent = 'N/A';
+      }
+    }
+    
+    /**
+     * Calculate percentage change
+     */
+    function calculatePercentageChange(oldValue, newValue) {
+      if (!oldValue || oldValue === 0) return 0;
+      return ((newValue - oldValue) / oldValue) * 100;
+    }
+    
+    /**
+     * Update percentage display with color coding
+     */
+    function updatePercentageDisplay(elementId, percentage) {
+      const element = document.getElementById(elementId);
+      const rounded = percentage.toFixed(1);
+      const sign = percentage >= 0 ? '+' : '';
+      
+      element.textContent = `${sign}${rounded}%`;
+      
+      // Update color based on positive/negative
+      element.classList.remove('text-green-600', 'text-red-600', 'text-gray-600');
+      if (percentage > 0) {
+        element.classList.add('text-green-600');
+      } else if (percentage < 0) {
+        element.classList.add('text-red-600');
+      } else {
+        element.classList.add('text-gray-600');
+      }
+    }
+    
+    // Render Data Table
+    function renderTable(data) {
+      const { details } = data;
+      const tbody = elements.dataTableBody;
+      tbody.innerHTML = '';
+      
+      details.forEach((item, index) => {
+        const diff = item.cutting - item.production;
+        const diffClass = diff >= 0 ? 'text-green-600' : 'text-red-600';
+        const statusClass = diff >= 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
+        const statusText = diff >= 0 ? 'ตัดเกิน' : 'ตัดขาด';
+        
+        // ✅ Add zebra striping (alternating row colors: white-gray-white-gray)
+        const isEven = index % 2 === 0;
+        const rowBgClass = isEven ? 'bg-white' : 'bg-gray-50';
+        
+        const row = document.createElement('tr');
+        row.className = `${rowBgClass} hover:bg-blue-50 transition-colors cursor-pointer`;
+        row.dataset.index = index;
+        row.innerHTML = `
+          <td class="px-6 py-4 text-sm text-gray-600 font-medium">${index + 1}</td>
+          <td class="px-6 py-4 text-sm font-bold text-gray-900">${item.brand}</td>
+          <td class="px-6 py-4 text-sm text-right number-cell font-semibold text-gray-900">${formatNumber(item.production)}</td>
+          <td class="px-6 py-4 text-sm text-right number-cell font-semibold text-gray-900">${formatNumber(item.cutting)}</td>
+          <td class="px-6 py-4 text-center">
+            <button class="expand-btn text-blue-600 hover:text-blue-800 font-semibold text-sm flex items-center gap-1 mx-auto">
+              <svg class="w-4 h-4 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+              </svg>
+              <span>ดูรายละเอียด</span>
+            </button>
+          </td>
+        `;
+        
+        const detailRow = document.createElement('tr');
+        detailRow.className = `detail-row hidden ${rowBgClass}`;
+        detailRow.innerHTML = `
+          <td colspan="5" class="px-6 py-0">
+            <div class="detail-content bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-6 mb-2 shadow-inner">
+              <!-- Header -->
+              <div class="mb-4 pb-3 border-b border-blue-200">
+                <h4 class="text-base font-bold text-gray-900">รายละเอียดเครื่องทอ</h4>
+                <p class="text-sm text-gray-600 mt-1">เครื่องทอ NO: <span class="font-bold text-blue-600">${item.machineNo || 'N/A'}</span></p>
+              </div>
+              
+              <!-- Shift A -->
+              <div class="mb-4 pb-4 border-b border-blue-200">
+                <h5 class="text-sm font-bold text-blue-700 mb-3">
+                  กะ A (Shift A)
+                </h5>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                  <div class="bg-white rounded-lg p-3 shadow-sm">
+                    <p class="text-xs text-gray-500 mb-1"> มิเตอร์เริ่มงาน</p>
+                    <p class="text-base font-bold text-gray-900">${formatNumber(item.meterStartA || 0)} <span class="text-sm text-blue-600">เมตร</span></p>
+                  </div>
+                  <div class="bg-white rounded-lg p-3 shadow-sm">
+                    <p class="text-xs text-gray-500 mb-1"> มิเตอร์เลิกงาน</p>
+                    <p class="text-base font-bold text-gray-900">${formatNumber(item.meterEndA || 0)} <span class="text-sm text-blue-600">เมตร</span></p>
+                  </div>
+                  <div class="bg-white rounded-lg p-3 shadow-sm">
+                    <p class="text-xs text-gray-500 mb-1"> ยอดทอ</p>
+                    <p class="text-base font-bold text-gray-900">${formatNumber(item.productionA || 0)} <span class="text-sm text-blue-600">เมตร</span></p>
+                  </div>
+                  <div class="bg-white rounded-lg p-3 shadow-sm">
+                    <p class="text-xs text-gray-500 mb-1"> ความยาวตัดม้วน</p>
+                    <p class="text-base font-bold text-gray-900">${formatNumber(item.cuttingLengthA || 0)} <span class="text-sm text-blue-600">เมตร</span></p>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Shift B -->
+              <div>
+                <h5 class="text-sm font-bold text-orange-700 mb-3">
+                  กะ B (Shift B)
+                </h5>
+                </h5>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                  <div class="bg-white rounded-lg p-3 shadow-sm">
+                    <p class="text-xs text-gray-500 mb-1"> มิเตอร์เริ่มงาน</p>
+                    <p class="text-base font-bold text-gray-900">${formatNumber(item.meterStartB || 0)} <span class="text-sm text-orange-600">เมตร</span></p>
+                  </div>
+                  <div class="bg-white rounded-lg p-3 shadow-sm">
+                    <p class="text-xs text-gray-500 mb-1"> มิเตอร์เลิกงาน</p>
+                    <p class="text-base font-bold text-gray-900">${formatNumber(item.meterEndB || 0)} <span class="text-sm text-orange-600">เมตร</span></p>
+                  </div>
+                  <div class="bg-white rounded-lg p-3 shadow-sm">
+                    <p class="text-xs text-gray-500 mb-1"> ยอดทอ</p>
+                    <p class="text-base font-bold text-gray-900">${formatNumber(item.productionB || 0)} <span class="text-sm text-orange-600">เมตร</span></p>
+                  </div>
+                  <div class="bg-white rounded-lg p-3 shadow-sm">
+                    <p class="text-xs text-gray-500 mb-1"> ความยาวตัดม้วน</p>
+                    <p class="text-base font-bold text-gray-900">${formatNumber(item.cuttingLengthB || 0)} <span class="text-sm text-orange-600">เมตร</span></p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </td>
+        `;
+        
+        tbody.appendChild(row);
+        tbody.appendChild(detailRow);
+        
+        // Add click handler for expansion
+        row.addEventListener('click', () => {
+          const isExpanded = detailRow.classList.contains('hidden');
+          const expandIcon = row.querySelector('.expand-btn svg');
+          
+          if (isExpanded) {
+            detailRow.classList.remove('hidden');
+            expandIcon.style.transform = 'rotate(180deg)';
+          } else {
+            detailRow.classList.add('hidden');
+            expandIcon.style.transform = 'rotate(0deg)';
+          }
+        });
+      });
+      
+      // Add total row
+      const totalProduction = details.reduce((sum, item) => sum + item.production, 0);
+      const totalCutting = details.reduce((sum, item) => sum + item.cutting, 0);
+      
+      const totalRow = document.createElement('tr');
+      totalRow.className = 'bg-gray-100 font-bold border-t-2 border-gray-300';
+      totalRow.innerHTML = `
+        <td colspan="2" class="px-6 py-4 text-sm text-gray-900">รวมทั้งหมด</td>
+        <td class="px-6 py-4 text-sm text-right number-cell text-gray-900">${formatNumber(totalProduction)} เมตร</td>
+        <td class="px-6 py-4 text-sm text-right number-cell text-gray-900">${formatNumber(totalCutting)} เมตร</td>
+        <td class="px-6 py-4"></td>
+      `;
+      tbody.appendChild(totalRow);
+    }
+    
+    // Render Brand Summary Table (View 2)
+    function renderBrandSummaryTable(data) {
+      const tbody = document.getElementById('brandTableBody');
+      if (!tbody) return;
+      
+      tbody.innerHTML = '';
+      
+      if (!data || data.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="6" class="px-6 py-12 text-center text-gray-500">
+              <div class="flex flex-col items-center gap-2">
+                <svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/>
+                </svg>
+                <span>ไม่มีข้อมูล</span>
+              </div>
+            </td>
+          </tr>
+        `;
+        return;
+      }
+      
+      // Group data by brand
+      const brandMap = {};
+      
+      data.forEach(item => {
+        const brand = item.brand || 'N/A';
+        
+        if (!brandMap[brand]) {
+          brandMap[brand] = {
+            brand: brand,
+            totalProduction: 0,
+            totalCutting: 0,
+            rollCount: 0, // จำนวนม้วน = นับจำนวนครั้งที่มี cutting > 0
+            machines: [] // เก็บเครื่องทั้งหมดในแต่ละ brand
+          };
+        }
+        
+        // Sum production and cutting
+        brandMap[brand].totalProduction += item.production || 0;
+        brandMap[brand].totalCutting += item.cutting || 0;
+        
+        // Count rolls (ถ้า cutting > 0 นับเป็น 1 ม้วน)
+        if ((item.cutting || 0) > 0) {
+          brandMap[brand].rollCount++;
+        }
+        
+        // Track machines
+        if (item.machineNo) {
+          brandMap[brand].machines.push(item.machineNo);
+        }
+      });
+      
+      // Convert to array and sort by brand
+      const brandSummary = Object.values(brandMap).sort((a, b) => {
+        return String(a.brand || '').localeCompare(String(b.brand || ''));
+      });
+      
+      // Render table rows with zebra striping
+      brandSummary.forEach((item, index) => {
+        const isEven = index % 2 === 0;
+        const rowBgClass = isEven ? 'bg-white' : 'bg-gray-50';
+        
+        const row = document.createElement('tr');
+        row.className = `${rowBgClass} hover:bg-blue-50 transition-colors`;
+        
+        // หมายเหตุ: แสดงจำนวนเครื่องและรายการเครื่อง
+        const machineList = item.machines.length > 0 
+          ? `${item.machines.length} เครื่อง (${[...new Set(item.machines)].sort().join(', ')})` 
+          : '-';
+        
+        row.innerHTML = `
+          <td class=\"px-6 py-4 text-sm text-gray-900 font-medium\">${index + 1}</td>
+          <td class=\"px-6 py-4 text-sm text-gray-900 font-bold\">${item.brand}</td>
+          <td class=\"px-6 py-4 text-sm text-right number-cell text-gray-900\">${formatNumber(item.totalProduction)}</td>
+          <td class=\"px-6 py-4 text-sm text-right number-cell text-gray-900\">${formatNumber(item.totalCutting)}</td>
+          <td class=\"px-6 py-4 text-sm text-center text-gray-900 font-semibold\">
+            <span class=\"inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800\">
+              ${item.rollCount} ม้วน
+            </span>
+          </td>
+          <td class=\"px-6 py-4 text-sm text-gray-600\">${machineList}</td>
+        `;
+        
+        tbody.appendChild(row);
+      });
+      
+      // Add total row
+      const totalProduction = brandSummary.reduce((sum, item) => sum + item.totalProduction, 0);
+      const totalCutting = brandSummary.reduce((sum, item) => sum + item.totalCutting, 0);
+      const totalRolls = brandSummary.reduce((sum, item) => sum + item.rollCount, 0);
+      
+      // นับจำนวนเครื่องทั้งหมด (unique machines)
+      const allMachines = new Set();
+      brandSummary.forEach(item => {
+        item.machines.forEach(machineNo => {
+          if (machineNo) allMachines.add(machineNo);
+        });
+      });
+      const totalMachines = allMachines.size;
+      
+      const totalRow = document.createElement('tr');
+      totalRow.className = 'bg-gray-100 font-bold border-t-2 border-gray-300';
+      totalRow.innerHTML = `
+        <td colspan=\"2\" class=\"px-6 py-4 text-sm text-gray-900\">รวมทั้งหมด</td>
+        <td class=\"px-6 py-4 text-sm text-right number-cell text-gray-900\">${formatNumber(totalProduction)} เมตร</td>
+        <td class=\"px-6 py-4 text-sm text-right number-cell text-gray-900\">${formatNumber(totalCutting)} เมตร</td>
+        <td class=\"px-6 py-4 text-sm text-center text-gray-900\">${totalRolls} ม้วน</td>
+        <td class=\"px-6 py-4 text-sm text-gray-600\">(${totalMachines} เครื่อง)</td>
+      `;
+      tbody.appendChild(totalRow);
+    }
+    
+    // Load and Display Data
+    async function loadData() {
+      if (state.isLoading) {
+        console.warn('⚠️ Already loading data, please wait...');
+        return;
+      }
+      
+      const dateA = elements.dateShiftA.value;
+      const dateB = elements.dateShiftB.value;
+      
+      console.log('\n🚀 Load Data Button Clicked');
+      console.log('📅 Selected dates:', { dateA, dateB });
+      
+      if (!dateA && !dateB) {
+        console.error('❌ No date selected');
+        alert('⚠️ กรุณาเลือกวันที่อย่างน้อย 1 กะ');
+        return;
+      }
+      
+      state.dateShiftA = dateA || dateB;
+      state.dateShiftB = dateB || dateA;
+      state.isLoading = true;
+      
+      console.log('📊 Loading data for:', {
+        shiftA: state.dateShiftA,
+        shiftB: state.dateShiftB
+      });
+      
+      showLoading();
+      
+      try {
+        const data = await fetchProductionData(state.dateShiftA, state.dateShiftB);
+        
+        console.log('✅ Data received, rendering...');
+        state.currentData = data;
+        
+        renderSummary(data);
+        renderTable(data);
+        renderBrandSummaryTable(data.details); // ✅ Render Brand View ด้วย
+        showData();
+        
+        console.log('🎉 Dashboard updated successfully!');
+        
+      } catch (error) {
+        console.error('❌ Load data failed:', error);
+        alert('❌ เกิดข้อผิดพลาดในการโหลดข้อมูล กรุณาลองใหม่อีกครั้ง');
+        showEmptyState();
+      } finally {
+        state.isLoading = false;
+      }
+    }
+    
+    // Export to Excel
+    function exportToExcel() {
+      if (!state.currentData) {
+        alert('⚠️ ไม่มีข้อมูลให้ Export');
+        return;
+      }
+      
+      // TODO: Implement Excel export
+      alert('ฟีเจอร์ Export Excel กำลังพัฒนา');
+    }
+    
+    // Quick Select Handler
+    function handleQuickSelect(value) {
+      const today = getTodayDate();
+      const yesterday = getYesterdayDate();
+      
+      switch(value) {
+        case 'today':
+          elements.dateShiftA.value = today;
+          elements.dateShiftB.value = today;
+          break;
+        case 'yesterday':
+          elements.dateShiftA.value = yesterday;
+          elements.dateShiftB.value = yesterday;
+          break;
+        case 'thisWeek':
+        case 'lastWeek':
+          alert('🚧 ฟีเจอร์นี้กำลังพัฒนา');
+          break;
+      }
+    }
+    
+    // Event Listeners
+    elements.loadDataBtn.addEventListener('click', loadData);
+    elements.exportBtn.addEventListener('click', exportToExcel);
+    elements.quickSelect.addEventListener('change', (e) => {
+      handleQuickSelect(e.target.value);
+    });
+    
+    // Tab Toggle Event Listeners
+    const viewMachineBtn = document.getElementById('viewMachineBtn');
+    const viewBrandBtn = document.getElementById('viewBrandBtn');
+    const machineTableView = document.getElementById('machineTableView');
+    const brandTableView = document.getElementById('brandTableView');
+    
+    viewMachineBtn.addEventListener('click', () => {
+      // Switch to Machine View
+      viewMachineBtn.classList.add('active');
+      viewBrandBtn.classList.remove('active');
+      machineTableView.classList.remove('hidden');
+      brandTableView.classList.add('hidden');
+    });
+    
+    viewBrandBtn.addEventListener('click', () => {
+      // Switch to Brand View
+      viewBrandBtn.classList.add('active');
+      viewMachineBtn.classList.remove('active');
+      brandTableView.classList.remove('hidden');
+      machineTableView.classList.add('hidden');
+      
+      // Render brand summary if data exists
+      if (state.currentData && state.currentData.details) {
+        renderBrandSummaryTable(state.currentData.details);
+      }
+    });
+    
+    // Initialize with YESTERDAY's date (previous day)
+    window.addEventListener('DOMContentLoaded', () => {
+      console.log('\n========================================');
+      console.log('🚀 PRODUCTION DASHBOARD v' + CONFIG.VERSION);
+      console.log('========================================');
+      console.log('📝 System Info:');
+      console.log('  - Version:', CONFIG.VERSION);
+      console.log('  - Cache Duration:', CONFIG.CACHE_DURATION / 1000, 'seconds');
+      console.log('  - Request Timeout:', CONFIG.REQUEST_TIMEOUT / 1000, 'seconds');
+      console.log('  - Max Retries:', CONFIG.MAX_RETRIES);
+      console.log('  - API URL:', API_URL);
+      console.log('========================================');
+      
+      // Display system info to user
+      console.log('💡 Performance Features:');
+      console.log('  ✅ Smart Caching (Memory + LocalStorage)');
+      console.log('  ✅ Request Timeout Protection');
+      console.log('  ✅ Auto Retry with Exponential Backoff');
+      console.log('  ✅ Cache Auto-Cleanup');
+      console.log('  ✅ Designed for 3-5 years operation');
+      console.log('========================================\n');
+      
+      // ✅ Auto-load YESTERDAY's date (วันก่อนหน้า 1 วัน)
+      const yesterday = getYesterdayDate();
+      elements.dateShiftA.value = yesterday;
+      elements.dateShiftB.value = yesterday;
+      
+      console.log('📅 Auto-selected date: YESTERDAY (เมื่อวาน)');
+      console.log('📅 Date:', yesterday);
+      console.log('💡 System will load previous day data automatically');
+      
+      // Auto-load data after 1 second
+      console.log('⏳ Auto-loading data in 1 second...');
+      setTimeout(() => {
+        console.log('🔄 Auto-loading yesterday\'s data now...');
+        loadData();
+      }, 1000);
+      
+      // Set up periodic cache cleanup (every 30 minutes)
+      setInterval(() => {
+        console.log('🧹 Running periodic cache cleanup...');
+        cacheManager.cleanExpired();
+      }, 30 * 60 * 1000);
+    });
+    
+    // ============================================
+    // 🛠️ MAINTENANCE & DEBUGGING TOOLS
+    // ============================================
+    
+    // Expose utility functions for debugging (F12 Console)
+    window.PD2_Dashboard = {
+      version: CONFIG.VERSION,
+      clearCache: () => {
+        cacheManager.clearAll();
+        console.log('✅ Cache cleared successfully');
+        alert('✅ Cache ถูกล้างเรียบร้อยแล้ว');
+      },
+      getCacheStats: () => {
+        const memorySize = cacheManager.memoryCache.size;
+        let localStorageSize = 0;
+        try {
+          const keys = Object.keys(localStorage);
+          localStorageSize = keys.filter(k => k.startsWith(CONFIG.CACHE_KEY_PREFIX)).length;
+        } catch (e) {}
+        
+        console.log('📊 Cache Statistics:');
+        console.log('  Memory Cache:', memorySize, 'entries');
+        console.log('  LocalStorage:', localStorageSize, 'entries');
+        console.log('  Cache Duration:', CONFIG.CACHE_DURATION / 1000, 'seconds');
+        
+        return { memory: memorySize, localStorage: localStorageSize };
+      },
+      config: CONFIG,
+      help: () => {
+        console.log('\n========================================');
+        console.log('📖 PD2 Dashboard Developer Tools');
+        console.log('========================================');
+        console.log('Available commands:');
+        console.log('  PD2_Dashboard.clearCache()     - Clear all cached data');
+        console.log('  PD2_Dashboard.getCacheStats()  - Show cache statistics');
+        console.log('  PD2_Dashboard.version          - Show version');
+        console.log('  PD2_Dashboard.config           - Show configuration');
+        console.log('  PD2_Dashboard.help()           - Show this help');
+        console.log('========================================\n');
+      }
+    };
+    
+    // Show welcome message
+    console.log('\n💡 Tip: Type "PD2_Dashboard.help()" in console for debugging tools\n');
+  </script>
+  
+</body>
+</html>

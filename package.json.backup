@@ -1,0 +1,43 @@
+{
+  "name": "pd2-shift-combined",
+  "version": "1.0.0",
+  "description": "Production Dept.2 unified shift console",
+  "main": "pd2-notify.js",
+  "scripts": {
+    "start": "http-server . -p 8080",
+    "start:api": "node server/index.js",
+    "pm2:start": "npx pm2 start ecosystem.config.js",
+    "pm2:stop": "npx pm2 stop ecosystem.config.js || true",
+    "watch-reload": "node ./dev/watch-and-reload.js",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "make-icons": "node ./scripts/make-icons.js",
+    "smoke": "node ./scripts/smoke.js",
+    "health:full": "node ./scripts/full-health.js",
+    "sheets:validate": "node ./scripts/validate-google-creds.js",
+    "validate": "node ./scripts/master-validation.js",
+    "validate:system": "node ./scripts/comprehensive-validation.js",
+    "validate:runtime": "node ./scripts/runtime-validation.js",
+    "validate:all": "npm run validate"
+  },
+  "keywords": [
+    "pd2",
+    "shift",
+    "dashboard"
+  ],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "chokidar": "^3.5.3",
+    "jest": "^30.1.3",
+    "jsdom": "^26.1.0",
+    "http-server": "^14.1.1",
+    "ws": "^8.13.0",
+    "jimp": "^0.16.1"
+  },
+  "dependencies": {
+    "googleapis": "^144.0.0",
+    "winston": "^3.17.0",
+    "winston-daily-rotate-file": "^5.0.0"
+  }
+}

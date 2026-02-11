@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Auth System</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #1a1a1a; color: #fff; }
+        .test-section { background: #2a2a2a; padding: 20px; margin: 10px 0; border-radius: 8px; }
+        button { padding: 10px 20px; margin: 5px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #45a049; }
+        .result { background: #333; padding: 10px; margin: 10px 0; border-radius: 4px; font-family: monospace; white-space: pre-wrap; }
+        .error { color: #ff5555; }
+        .success { color: #55ff55; }
+        input { padding: 8px; margin: 5px; border-radius: 4px; border: 1px solid #555; background: #333; color: #fff; }
+    </style>
+</head>
+<body>
+    <h1>🔐 Test Auth System</h1>
+    
+    <div class="test-section">
+        <h2>1. Check if scripts loaded</h2>
+        <button onclick="checkScripts()">Check Scripts</button>
+        <div id="scripts-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>2. Check sessionStorage</h2>
+        <button onclick="checkSession()">Check Session</button>
+        <button onclick="clearSession()">Clear Session</button>
+        <div id="session-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>3. Test Login (Manual)</h2>
+        <input type="text" id="username" placeholder="Username" value="Zolapolysack_PD2">
+        <input type="password" id="password" placeholder="Password" value="ZP9965">
+        <button onclick="testLogin()">Test Login</button>
+        <div id="login-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>4. Test Auth Bridge</h2>
+        <button onclick="testAuthBridge()">Test Auth Bridge</button>
+        <button onclick="mountOverlay()">Mount Overlay</button>
+        <div id="bridge-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>5. Console Log</h2>
+        <div id="console-log" class="result" style="max-height: 300px; overflow-y: auto;"></div>
+    </div>
+
+    <!-- Load the auth scripts -->
+    <script src="./login V2.0/forms/neumorphism/auth.js"></script>
+    <script src="./assets/js/pd2-auth-bridge.js"></script>
+
+    <script>
+        // Capture console logs
+        const consoleLog = document.getElementById('console-log');
+        const originalLog = console.log;
+        const originalError = console.error;
+        const originalWarn = console.warn;
+        
+        function addToConsole(type, ...args) {
+            const msg = args.map(a => {
+                try { return typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a); }
+                catch(e) { return String(a); }
+            }).join(' ');
+            consoleLog.innerHTML += `<div class="${type}">[${type.toUpperCase()}] ${msg}</div>`;
+            consoleLog.scrollTop = consoleLog.scrollHeight;
+        }
+        
+        console.log = function(...args) { addToConsole('log', ...args); originalLog.apply(console, args); };
+        console.error = function(...args) { addToConsole('error', ...args); originalError.apply(console, args); };
+        console.warn = function(...args) { addToConsole('warn', ...args); originalWarn.apply(console, args); };
+
+        function checkScripts() {
+            const result = document.getElementById('scripts-result');
+            let html = '';
+            
+            html += '✓ FormAuth: ' + (typeof FormAuth !== 'undefined' ? '<span class="success">LOADED</span>' : '<span class="error">NOT LOADED</span>') + '\n';
+            if (typeof FormAuth !== 'undefined') {
+                html += '  - authenticate: ' + (typeof FormAuth.authenticate === 'function' ? '✓' : '✗') + '\n';
+                html += '  - loginSession: ' + (typeof FormAuth.loginSession === 'function' ? '✓' : '✗') + '\n';
+                html += '  - getSession: ' + (typeof FormAuth.getSession === 'function' ? '✓' : '✗') + '\n';
+            }
+            
+            html += '\n✓ PD2Auth: ' + (typeof PD2Auth !== 'undefined' ? '<span class="success">LOADED</span>' : '<span class="error">NOT LOADED</span>') + '\n';
+            if (typeof PD2Auth !== 'undefined') {
+                html += '  - isAuthed: ' + (typeof PD2Auth.isAuthed === 'function' ? '✓' : '✗') + '\n';
+                html += '  - mountLoginGate: ' + (typeof PD2Auth.mountLoginGate === 'function' ? '✓' : '✗') + '\n';
+            }
+            
+            result.innerHTML = html;
+        }
+
+        function checkSession() {
+            const result = document.getElementById('session-result');
+            try {
+                const raw = sessionStorage.getItem('neuroAuth');
+                if (!raw) {
+                    result.innerHTML = '<span class="error">No session found</span>';
+                    return;
+                }
+                const session = JSON.parse(raw);
+                const now = Date.now();
+                const expired = session.exp && now > session.exp;
+                
+                result.innerHTML = 'Session found:\n' +
+                    JSON.stringify(session, null, 2) + '\n\n' +
+                    'Status: ' + (expired ? '<span class="error">EXPIRED</span>' : '<span class="success">VALID</span>') + '\n' +
+                    'Expires in: ' + (session.exp ? Math.round((session.exp - now) / 1000 / 60) + ' minutes' : 'N/A');
+            } catch(e) {
+                result.innerHTML = '<span class="error">Error: ' + e.message + '</span>';
+            }
+        }
+
+        function clearSession() {
+            try {
+                sessionStorage.removeItem('neuroAuth');
+                document.getElementById('session-result').innerHTML = '<span class="success">Session cleared</span>';
+            } catch(e) {
+                document.getElementById('session-result').innerHTML = '<span class="error">Error: ' + e.message + '</span>';
+            }
+        }
+
+        async function testLogin() {
+            const result = document.getElementById('login-result');
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            result.innerHTML = 'Testing login...';
+            
+            try {
+                if (typeof FormAuth === 'undefined') {
+                    result.innerHTML = '<span class="error">FormAuth not loaded!</span>';
+                    return;
+                }
+                
+                const res = await FormAuth.authenticate(username, password);
+                
+                if (res.ok) {
+                    result.innerHTML = '<span class="success">✓ Authentication successful!</span>\n' +
+                        'User: ' + res.user + '\n\n' +
+                        'Creating session...';
+                    
+                    const sessionCreated = FormAuth.loginSession(res.user);
+                    if (sessionCreated) {
+                        result.innerHTML += '\n<span class="success">✓ Session created!</span>';
+                        checkSession();
+                    } else {
+                        result.innerHTML += '\n<span class="error">✗ Session creation failed</span>';
+                    }
+                } else {
+                    result.innerHTML = '<span class="error">✗ Authentication failed</span>\n' +
+                        JSON.stringify(res, null, 2);
+                }
+            } catch(e) {
+                result.innerHTML = '<span class="error">Error: ' + e.message + '</span>\n' + e.stack;
+            }
+        }
+
+        function testAuthBridge() {
+            const result = document.getElementById('bridge-result');
+            
+            if (typeof PD2Auth === 'undefined') {
+                result.innerHTML = '<span class="error">PD2Auth not loaded!</span>';
+                return;
+            }
+            
+            let html = '';
+            html += 'PD2Auth.isAuthed(): ' + (PD2Auth.isAuthed() ? '<span class="success">TRUE</span>' : '<span class="error">FALSE</span>') + '\n';
+            
+            result.innerHTML = html;
+        }
+
+        function mountOverlay() {
+            const result = document.getElementById('bridge-result');
+            
+            if (typeof PD2Auth === 'undefined') {
+                result.innerHTML = '<span class="error">PD2Auth not loaded!</span>';
+                return;
+            }
+            
+            result.innerHTML = 'Mounting login overlay...';
+            
+            try {
+                PD2Auth.mountLoginGate({
+                    loginPath: './login V2.0/forms/neumorphism/index.html',
+                    onUnlock: function(session) {
+                        result.innerHTML = '<span class="success">✓ Login overlay unlocked!</span>\n' +
+                            'Session: ' + JSON.stringify(session, null, 2);
+                    }
+                });
+                result.innerHTML = 'Login overlay mounted. Check the overlay!';
+            } catch(e) {
+                result.innerHTML = '<span class="error">Error: ' + e.message + '</span>\n' + e.stack;
+            }
+        }
+
+        // Auto-check on load
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                checkScripts();
+                checkSession();
+                testAuthBridge();
+            }, 500);
+        });
+    </script>
+</body>
+</html>

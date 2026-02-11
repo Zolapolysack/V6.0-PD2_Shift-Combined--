@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mobile Debug - PD2 Auth</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: #1a1a1a;
+            color: #fff;
+            padding: 10px;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        .debug-panel {
+            background: #2a2a2a;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+            border: 1px solid #444;
+        }
+        h1 { font-size: 20px; margin-bottom: 15px; color: #4CAF50; }
+        h2 { font-size: 16px; margin: 15px 0 10px; color: #2196F3; }
+        .status { padding: 8px 12px; margin: 8px 0; border-radius: 4px; font-weight: bold; }
+        .success { background: #4CAF50; color: white; }
+        .error { background: #f44336; color: white; }
+        .warning { background: #ff9800; color: white; }
+        .info { background: #2196F3; color: white; }
+        button {
+            width: 100%;
+            padding: 12px;
+            margin: 8px 0;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+        }
+        button:active { background: #45a049; }
+        .log-entry {
+            padding: 6px 10px;
+            margin: 4px 0;
+            background: #333;
+            border-radius: 4px;
+            font-size: 12px;
+            word-break: break-word;
+        }
+        .log-entry.error { border-left: 3px solid #f44336; }
+        .log-entry.warn { border-left: 3px solid #ff9800; }
+        .log-entry.info { border-left: 3px solid #2196F3; }
+        .timestamp { color: #888; font-size: 11px; }
+        input {
+            width: 100%;
+            padding: 10px;
+            margin: 8px 0;
+            background: #333;
+            border: 1px solid #555;
+            border-radius: 4px;
+            color: #fff;
+            font-size: 16px;
+        }
+        .device-info {
+            font-size: 12px;
+            color: #aaa;
+            background: #222;
+            padding: 8px;
+            border-radius: 4px;
+            margin: 8px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 Mobile Debug Panel</h1>
+    
+    <div class="debug-panel">
+        <h2>Device Info</h2>
+        <div class="device-info" id="device-info">Loading...</div>
+    </div>
+
+    <div class="debug-panel">
+        <h2>Script Status</h2>
+        <div id="script-status">Checking...</div>
+    </div>
+
+    <div class="debug-panel">
+        <h2>Session Status</h2>
+        <div id="session-status">Checking...</div>
+    </div>
+
+    <div class="debug-panel">
+        <h2>Manual Login Test</h2>
+        <input type="text" id="username" placeholder="Username" value="Zolapolysack_PD2">
+        <input type="password" id="password" placeholder="Password" value="ZP9965">
+        <button onclick="manualLogin()">🔐 Test Login</button>
+        <div id="login-result"></div>
+    </div>
+
+    <div class="debug-panel">
+        <h2>Actions</h2>
+        <button onclick="testOverlay()">🖼️ Test Auth Overlay</button>
+        <button onclick="clearAllData()">🗑️ Clear All Data</button>
+        <button onclick="reloadPage()">🔄 Reload Page</button>
+    </div>
+
+    <div class="debug-panel">
+        <h2>Console Log</h2>
+        <div id="console-log"></div>
+    </div>
+
+    <!-- Load auth scripts -->
+    <script src="./login V2.0/forms/neumorphism/auth.js"></script>
+    <script src="./assets/js/pd2-auth-bridge.js"></script>
+
+    <script>
+        const logContainer = document.getElementById('console-log');
+        const logs = [];
+
+        function addLog(type, ...args) {
+            const timestamp = new Date().toLocaleTimeString('th-TH');
+            const msg = args.map(a => {
+                try { return typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a); }
+                catch(e) { return String(a); }
+            }).join(' ');
+            
+            logs.push({ type, msg, timestamp });
+            updateLogDisplay();
+        }
+
+        function updateLogDisplay() {
+            logContainer.innerHTML = logs.slice(-20).map(log => 
+                `<div class="log-entry ${log.type}">
+                    <span class="timestamp">[${log.timestamp}]</span> ${log.msg}
+                </div>`
+            ).join('');
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        // Capture console
+        const originalLog = console.log;
+        const originalError = console.error;
+        const originalWarn = console.warn;
+
+        console.log = function(...args) { addLog('info', ...args); originalLog.apply(console, args); };
+        console.error = function(...args) { addLog('error', ...args); originalError.apply(console, args); };
+        console.warn = function(...args) { addLog('warn', ...args); originalWarn.apply(console, args); };
+
+        // Capture errors
+        window.addEventListener('error', function(e) {
+            addLog('error', 'ERROR:', e.message, 'at', e.filename + ':' + e.lineno);
+        });
+
+        // Display device info
+        function showDeviceInfo() {
+            const info = {
+                'User Agent': navigator.userAgent,
+                'Screen': `${screen.width}x${screen.height}`,
+                'Viewport': `${window.innerWidth}x${window.innerHeight}`,
+                'Touch': 'ontouchstart' in window ? 'Yes' : 'No',
+                'Platform': navigator.platform,
+                'Language': navigator.language,
+                'Online': navigator.onLine ? 'Yes' : 'No'
+            };
+            
+            document.getElementById('device-info').innerHTML = Object.entries(info)
+                .map(([k, v]) => `<div><strong>${k}:</strong> ${v}</div>`)
+                .join('');
+        }
+
+        // Check script status
+        function checkScripts() {
+            const status = document.getElementById('script-status');
+            let html = '';
+            
+            const formAuthLoaded = typeof FormAuth !== 'undefined';
+            const pd2AuthLoaded = typeof PD2Auth !== 'undefined';
+            
+            if (formAuthLoaded && pd2AuthLoaded) {
+                html = '<div class="status success">✓ All scripts loaded</div>';
+                html += '<div>FormAuth: ✓</div>';
+                html += '<div>PD2Auth: ✓</div>';
+            } else {
+                html = '<div class="status error">✗ Scripts missing</div>';
+                html += '<div>FormAuth: ' + (formAuthLoaded ? '✓' : '✗') + '</div>';
+                html += '<div>PD2Auth: ' + (pd2AuthLoaded ? '✓' : '✗') + '</div>';
+            }
+            
+            status.innerHTML = html;
+            console.log('Script check:', { formAuthLoaded, pd2AuthLoaded });
+        }
+
+        // Check session
+        function checkSession() {
+            const status = document.getElementById('session-status');
+            try {
+                const raw = sessionStorage.getItem('neuroAuth');
+                if (!raw) {
+                    status.innerHTML = '<div class="status warning">No session</div>';
+                    console.log('No session found');
+                    return;
+                }
+                
+                const session = JSON.parse(raw);
+                const now = Date.now();
+                const expired = session.exp && now > session.exp;
+                
+                if (expired) {
+                    status.innerHTML = '<div class="status error">Session expired</div>';
+                    console.error('Session expired:', session);
+                } else {
+                    status.innerHTML = '<div class="status success">✓ Valid session</div>';
+                    status.innerHTML += `<div>User: ${session.user}</div>`;
+                    status.innerHTML += `<div>Expires: ${Math.round((session.exp - now) / 1000 / 60)}m</div>`;
+                    console.log('Valid session:', session);
+                }
+            } catch(e) {
+                status.innerHTML = '<div class="status error">Session error: ' + e.message + '</div>';
+                console.error('Session check error:', e);
+            }
+        }
+
+        // Manual login test
+        async function manualLogin() {
+            const result = document.getElementById('login-result');
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            result.innerHTML = '<div class="status info">Testing...</div>';
+            console.log('Testing login:', username);
+            
+            try {
+                if (typeof FormAuth === 'undefined') {
+                    throw new Error('FormAuth not loaded');
+                }
+                
+                const res = await FormAuth.authenticate(username, password);
+                console.log('Auth result:', res);
+                
+                if (res.ok) {
+                    const sessionCreated = FormAuth.loginSession(res.user);
+                    result.innerHTML = '<div class="status success">✓ Login successful!</div>';
+                    console.log('Session created:', sessionCreated);
+                    checkSession();
+                } else {
+                    result.innerHTML = '<div class="status error">✗ Login failed</div>';
+                    if (res.locked) {
+                        result.innerHTML += '<div>Account locked until ' + new Date(res.retryAt).toLocaleTimeString() + '</div>';
+                    }
+                    console.error('Login failed:', res);
+                }
+            } catch(e) {
+                result.innerHTML = '<div class="status error">Error: ' + e.message + '</div>';
+                console.error('Login error:', e);
+            }
+        }
+
+        // Test overlay
+        function testOverlay() {
+            console.log('Testing overlay...');
+            try {
+                if (typeof PD2Auth === 'undefined') {
+                    alert('PD2Auth not loaded!');
+                    return;
+                }
+                
+                PD2Auth.mountLoginGate({
+                    loginPath: './login V2.0/forms/neumorphism/index.html',
+                    onUnlock: function(session) {
+                        console.log('Overlay unlocked:', session);
+                        alert('Login successful!');
+                        checkSession();
+                    }
+                });
+                console.log('Overlay mounted');
+            } catch(e) {
+                alert('Overlay error: ' + e.message);
+                console.error('Overlay error:', e);
+            }
+        }
+
+        // Clear all data
+        function clearAllData() {
+            try {
+                sessionStorage.clear();
+                localStorage.clear();
+                console.log('All data cleared');
+                checkSession();
+                alert('All data cleared');
+            } catch(e) {
+                console.error('Clear error:', e);
+            }
+        }
+
+        // Reload
+        function reloadPage() {
+            location.reload();
+        }
+
+        // Initialize
+        window.addEventListener('load', function() {
+            console.log('Page loaded');
+            showDeviceInfo();
+            setTimeout(() => {
+                checkScripts();
+                checkSession();
+            }, 500);
+        });
+    </script>
+</body>
+</html>

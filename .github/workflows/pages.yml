@@ -1,0 +1,57 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare Pages artifact (_site)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p _site
+          # Core entry points
+          cp -v index.html sw.js manifest.json pd2-notify.js images.png _site/ || true
+          # 404 fallback
+          if [ -f 404.html ]; then cp -v 404.html _site/; fi
+          # Static assets and modules (handle spaces & non-ASCII names)
+          [ -d "assets" ] && cp -vr "assets" "_site/assets"
+          [ -d "login V2.0" ] && cp -vr "login V2.0" "_site/login V2.0"
+          [ -d "link google sheet" ] && cp -vr "link google sheet" "_site/link google sheet"
+          [ -d "ปรับ script PD2_Shift-A_V4.0" ] && cp -vr "ปรับ script PD2_Shift-A_V4.0" "_site/ปรับ script PD2_Shift-A_V4.0"
+          [ -d "ปรับ script PD2_Shift-B_V4.0" ] && cp -vr "ปรับ script PD2_Shift-B_V4.0" "_site/ปรับ script PD2_Shift-B_V4.0"
+          [ -d "ตัดม้วน PD2" ] && cp -vr "ตัดม้วน PD2" "_site/ตัดม้วน PD2"
+          [ -d "PD2_Shift-Combined_V5.01" ] && cp -vr "PD2_Shift-Combined_V5.01" "_site/PD2_Shift-Combined_V5.01"
+          # Note: server/, scripts/, tests/, docs/ intentionally excluded from website artifact
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

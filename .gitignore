@@ -1,0 +1,26 @@
+﻿node_modules/
+.env
+.env.local
+.DS_Store
+Thumbs.db
+.vscode/
+dist/
+.cache/
+.local
+npm-debug.log*
+package-lock.json
+*.log
+!.gitkeep
+coverage/
+
+# Logs
+logs/
+server/logs/
+
+# Build artifacts
+dist/
+
+# Validation reports (generated files)
+validation-report.json
+runtime-validation-report.json
+master-validation-report.json

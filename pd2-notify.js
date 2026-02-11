@@ -1,0 +1,255 @@
+// PD2 shared notification module
+(function(){
+  if (window.PD2Notify) return; // already loaded
+  if (!window.PD2NotifyState) window.PD2NotifyState = { recent: [], maxVisible: 6, dedupeTTL: 5000 };
+
+  function ensureContainer(){
+    let c = document.getElementById('notifications');
+    if (c) return c;
+    try {
+      c = document.createElement('div');
+      c.id = 'notifications';
+      c.className = 'fixed top-4 right-4 z-50 space-y-2';
+      document.body.appendChild(c);
+      return c;
+    } catch(_) { return null; }
+  }
+
+  function PD2Notify(message, type){
+    try {
+  if (!window.PD2NotifyState) window.PD2NotifyState = { recent: [], maxVisible: 6, dedupeTTL: 5000 };
+  const state = window.PD2NotifyState;
+      const now = Date.now();
+      // Improved deduplication: clean up old entries and limit array size
+      state.recent = state.recent.filter(r => now - r.ts < state.dedupeTTL).slice(-20);
+      if (state.recent.some(r => r.msg === message && r.type === type)) return;
+      state.recent.push({ msg: message, type: type, ts: now });
+
+      const map = {
+        success: { accent: 'bg-emerald-500', role: 'status', icon: '✓', iconBg: 'bg-emerald-50', iconColor: 'text-emerald-600', title: 'สำเร็จ' },
+        error:   { accent: 'bg-rose-500',   role: 'alert',  icon: '✕', iconBg: 'bg-rose-50', iconColor: 'text-rose-600', title: 'ข้อผิดพลาด' },
+        warning: { accent: 'bg-amber-500',  role: 'status', icon: '!', iconBg: 'bg-amber-50', iconColor: 'text-amber-600', title: 'คำเตือน' },
+        green:   { accent: 'bg-emerald-500', role: 'status', icon: '✓', iconBg: 'bg-emerald-50', iconColor: 'text-emerald-600', title: 'เสร็จสิ้น' },
+        blue:    { accent: 'bg-blue-500',    role: 'status', icon: 'ℹ', iconBg: 'bg-blue-50', iconColor: 'text-blue-600', title: 'แจ้งเตือน' },
+        purple:  { accent: 'bg-violet-500', role: 'status', icon: '✓', iconBg: 'bg-violet-50', iconColor: 'text-violet-600', title: 'บันทึกข้อมูล' },
+        orange:  { accent: 'bg-orange-500',  role: 'status', icon: '✓', iconBg: 'bg-orange-50', iconColor: 'text-orange-600', title: 'ดำเนินการเสร็จสิ้น' },
+        red:     { accent: 'bg-red-500',   role: 'alert',  icon: '✕', iconBg: 'bg-red-50', iconColor: 'text-red-600', title: 'ลบข้อมูล' },
+        default: { accent: 'bg-slate-500',  role: 'status', icon: 'ℹ', iconBg: 'bg-slate-50', iconColor: 'text-slate-600', title: 'ข้อมูล' }
+      };
+      const cfg = map[type] || map.default;
+
+      const container = ensureContainer();
+      if (!container) return;
+
+      // build toast with modern professional design
+      const notification = document.createElement('div');
+      notification.setAttribute('role', cfg.role);
+      notification.setAttribute('aria-live', cfg.role === 'alert' ? 'assertive' : 'polite');
+  notification.className = 'pd2-toast notification toast group relative overflow-hidden flex items-stretch gap-0 rounded-xl shadow-lg max-w-md ring-1 ring-black/10 bg-white backdrop-blur-md text-slate-800 border-0';
+      notification.style.opacity = '0';
+      notification.style.transform = 'translateX(24px) scale(0.95)';
+
+      // Modern professional design with accent bar and icon
+      const accentBar = '<div class="absolute inset-y-0 left-0 w-1 ' + cfg.accent + ' pd2-notify-accent" aria-hidden="true" style="border-top-left-radius:inherit;border-bottom-left-radius:inherit"></div>';
+  const iconWrap = '<div class="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full ' + cfg.iconBg + ' ' + cfg.iconColor + ' font-bold text-lg ml-3 my-3 shadow-sm border border-black/5"><span class="leading-none">' + cfg.icon + '</span></div>';
+  const closeBtnHTML = '<button type="button" class="close-notify absolute top-2 right-2 text-slate-400 hover:text-slate-700 transition-colors rounded-full h-6 w-6 flex items-center justify-center hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/50" aria-label="ปิดการแจ้งเตือน"><span class="text-xl leading-none">×</span></button>';
+
+      notification.innerHTML = '\n' +
+        accentBar +
+        '<div class="flex items-start gap-3 w-full py-3 pr-10">' +
+          iconWrap +
+          '<div class="flex-1 min-w-0 py-1">' +
+            '<div class="font-semibold text-sm text-slate-700 mb-0.5 tracking-tight">' + cfg.title + '</div>' +
+            '<div class="text-[13px] leading-relaxed text-slate-600 pr-2">' + String(message) + '</div>' +
+          '</div>' +
+        '</div>' +
+        closeBtnHTML + '\n';
+
+      try {
+        while (container.children.length >= state.maxVisible) {
+          container.removeChild(container.children[0]);
+        }
+      } catch(_){}
+
+      container.appendChild(notification);
+      requestAnimationFrame(() => {
+        notification.style.transition = 'transform .35s cubic-bezier(0.16, 1, 0.3, 1), opacity .35s ease';
+        notification.style.transform = 'translateX(0) scale(1)';
+        notification.style.opacity = '1';
+      });
+
+      let autoMs = 3500; // longer display time for better readability
+      let timer = setTimeout(startFadeOut, autoMs);
+      let fading = false;
+      function startFadeOut(){
+        if (fading) return; fading = true;
+        try {
+          notification.style.transition = (notification.style.transition || '') + ', opacity .25s ease';
+          notification.style.opacity = '0';
+          setTimeout(remove, 260);
+        } catch(_) { remove(); }
+      }
+      function remove(){ 
+        try { 
+          clearTimeout(timer); 
+          if (notification.parentNode) {
+            // Remove event listeners before removing element
+            if (closeBtn && closeBtn.parentNode) {
+              closeBtn.removeEventListener('click', handleCloseClick);
+            }
+            notification.removeEventListener('mouseenter', onEnter);
+            notification.removeEventListener('mouseleave', onLeave);
+            notification.parentNode.removeChild(notification);
+          }
+        } catch(_){} 
+      }
+      const closeBtn = notification.querySelector('.close-notify');
+      function handleCloseClick(){ startFadeOut(); }
+      function onEnter(){ clearTimeout(timer); }
+      function onLeave(){ clearTimeout(timer); if (!fading) timer = setTimeout(startFadeOut, 400); }
+      if (closeBtn) closeBtn.addEventListener('click', handleCloseClick, { passive: true });
+      notification.addEventListener('mouseenter', onEnter, { passive: true });
+      notification.addEventListener('mouseleave', onLeave, { passive: true });
+
+    } catch (err) { try { console.error('PD2Notify error', err); } catch(_){} }
+  }
+
+  window.PD2Notify = PD2Notify;
+  // alias for backward compatibility
+  window.showNotification = PD2Notify;
+  // Ensure container exists immediately so consumers (and tests) can query it after load
+  try { ensureContainer(); } catch(_) {}
+  // Polished centered success overlay helper (modern, animated, accessible)
+  window.PD2NotifyCenteredSuccess = function(count){
+    try {
+      const existing = document.getElementById('pd2-centered-success');
+      if (existing) existing.remove();
+
+      const el = document.createElement('div');
+      el.id = 'pd2-centered-success';
+      el.setAttribute('role','status');
+      el.setAttribute('aria-live','polite');
+      el.style.position = 'fixed';
+      el.style.inset = '0';
+      el.style.display = 'flex';
+      el.style.alignItems = 'center';
+      el.style.justifyContent = 'center';
+      el.style.background = 'rgba(15,23,42,0.28)'; // soft backdrop
+      el.style.backdropFilter = 'blur(4px) saturate(1.3)';
+      el.style.webkitBackdropFilter = 'blur(4px) saturate(1.3)';
+      el.style.zIndex = 2147483647;
+      el.style.opacity = '0';
+      el.style.transition = 'opacity .4s cubic-bezier(.3,.9,.3,1)';
+
+      const card = document.createElement('div');
+      card.className = 'pd2-center-card';
+      card.style.position = 'relative';
+      card.style.pointerEvents = 'auto';
+      card.style.minWidth = '260px';
+      card.style.maxWidth = '560px';
+      card.style.width = 'min(92vw,520px)';
+      card.style.borderRadius = '20px';
+      card.style.padding = '26px 28px 30px 28px';
+      card.style.background = 'linear-gradient(145deg,rgba(255,255,255,0.96),rgba(248,250,252,0.94))';
+      card.style.border = '1px solid rgba(2,6,23,0.08)';
+      card.style.boxShadow = '0 4px 15px -4px rgba(2,6,23,0.06), 0 25px 55px -10px rgba(2,6,23,0.35)';
+      card.style.display = 'flex';
+      card.style.gap = '22px';
+      card.style.alignItems = 'center';
+      card.style.transform = 'translateY(12px) scale(.96)';
+      card.style.opacity = '0';
+      card.style.transition = 'opacity .55s cubic-bezier(.25,.9,.25,1), transform .55s cubic-bezier(.25,.9,.25,1)';
+
+      // Animated success icon
+      const iconWrap = document.createElement('div');
+      iconWrap.style.width = '72px';
+      iconWrap.style.height = '72px';
+      iconWrap.style.flexShrink = '0';
+      iconWrap.style.borderRadius = '999px';
+      iconWrap.style.display = 'flex';
+      iconWrap.style.alignItems = 'center';
+      iconWrap.style.justifyContent = 'center';
+      iconWrap.style.background = 'linear-gradient(135deg,#dcfce7,#86efac)';
+      iconWrap.style.boxShadow = '0 10px 30px -6px rgba(34,197,94,0.35), 0 4px 10px -2px rgba(34,197,94,0.25)';
+      iconWrap.innerHTML = '<svg class="pd2-center-icon" width="40" height="40" viewBox="0 0 44 44" fill="none" stroke="#065f46" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" style="overflow:visible">' +
+        '<circle cx="22" cy="22" r="20" stroke="#34d399" stroke-width="3" opacity=".25" />' +
+        '<path d="M30 16 L19.5 27.5 L14 22" stroke-dasharray="34" stroke-dashoffset="34" />' +
+      '</svg>';
+
+      const textWrap = document.createElement('div');
+      textWrap.style.flex = '1';
+      textWrap.style.minWidth = '0';
+      textWrap.innerHTML = '<div style="font-size:20px;font-weight:700;color:#022c22;letter-spacing:.5px;line-height:1">บันทึกข้อมูลสำเร็จ</div>'+
+        '<div style="margin-top:6px;font-size:14px;color:#475569;line-height:1.35">' + String(count) + ' รายการ ถูกบันทึกเรียบร้อย</div>';
+
+      const closeBtn = document.createElement('button');
+      closeBtn.setAttribute('aria-label','ปิด');
+      closeBtn.innerHTML = '×';
+      Object.assign(closeBtn.style, {
+        position:'absolute', top:'10px', right:'12px', background:'transparent', border:'0',
+        color:'#64748b', fontSize:'24px', lineHeight:'1', padding:'6px', cursor:'pointer',
+        borderRadius:'8px'
+      });
+      closeBtn.onmouseenter = () => closeBtn.style.color = '#0f172a';
+      closeBtn.onmouseleave = () => closeBtn.style.color = '#64748b';
+
+      // Progress bar at bottom (auto-dismiss indicator)
+      const prog = document.createElement('div');
+      prog.style.position = 'absolute';
+      prog.style.left = '0';
+      prog.style.bottom = '0';
+      prog.style.height = '4px';
+      prog.style.background = 'linear-gradient(90deg,#06b6d4,#34d399,#10b981)';
+      prog.style.width = '100%';
+      prog.style.transformOrigin = 'left';
+      prog.style.transform = 'scaleX(1)';
+      prog.style.transition = 'transform 3.4s linear';
+      prog.style.borderBottomLeftRadius = 'inherit';
+      prog.style.borderBottomRightRadius = 'inherit';
+
+      card.appendChild(iconWrap);
+      card.appendChild(textWrap);
+      card.appendChild(closeBtn);
+      card.appendChild(prog);
+      el.appendChild(card);
+      document.body.appendChild(el);
+
+      // Animate reveal
+      requestAnimationFrame(()=>{ el.style.opacity = '1'; });
+      requestAnimationFrame(()=>{ card.style.opacity='1'; card.style.transform='translateY(0) scale(1)'; });
+      // Animate check stroke
+      setTimeout(()=>{
+        try {
+          const path = card.querySelector('path');
+          if (path) {
+            path.style.transition = 'stroke-dashoffset .85s cubic-bezier(.4,.9,.2,1)';
+            path.style.strokeDashoffset = '0';
+          }
+        }catch(_){}
+      },160);
+      // Start progress drain
+      setTimeout(()=>{ prog.style.transform = 'scaleX(0)'; }, 40);
+
+      // Auto-dismiss after 3.5s
+      const dismissDelay = 3500;
+      const dismissT = setTimeout(close, dismissDelay);
+
+      function close(){
+        try {
+          clearTimeout(dismissT);
+          el.style.opacity = '0';
+          card.style.transform='translateY(4px) scale(.985)';
+          card.style.opacity='0';
+          setTimeout(()=>{ try{ el.remove(); }catch(_){} }, 420);
+          window.removeEventListener('keydown', escHandler);
+        } catch(_){}
+      }
+      function escHandler(e){ if (e.key === 'Escape') close(); }
+      window.addEventListener('keydown', escHandler);
+      closeBtn.addEventListener('click', close);
+      // Allow manual re-trigger to not trap focus (no focus handling required here)
+      return el;
+    } catch(err){ console.error('PD2NotifyCenteredSuccess error', err); }
+  };
+})();
+

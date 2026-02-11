@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Apps Script Connection</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 { color: #333; }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            background: #f9f9f9;
+            border-left: 4px solid #4CAF50;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        button:hover { background: #45a049; }
+        .error { color: #f44336; }
+        .success { color: #4CAF50; }
+        .warning { color: #ff9800; }
+        .info { color: #2196F3; }
+        pre {
+            background: #263238;
+            color: #aed581;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .log-entry {
+            margin: 10px 0;
+            padding: 10px;
+            background: white;
+            border-left: 3px solid #2196F3;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Debug Apps Script Connection</h1>
+        
+        <div class="test-section">
+            <h2>📝 ใส่ Apps Script URL:</h2>
+            <label>กะ A:</label>
+            <input type="text" id="urlA" placeholder="https://script.google.com/macros/s/..." value="https://script.google.com/macros/s/AKfycbzyHeKF4D1A5OnyAdmogDIBiTkkzmyaMjHdj29XMnwcLYLeC39Eb8YPfNc2Zy4yHp2V/exec">
+            
+            <label>กะ B:</label>
+            <input type="text" id="urlB" placeholder="https://script.google.com/macros/s/..." value="https://script.google.com/macros/s/AKfycbwh2viO76_yCWxKtCKW1svuFZX-x-QWKfpIgFkLKuXmsIp0RKVSXTvWfio-zlp0OB0AEA/exec">
+        </div>
+
+        <div class="test-section">
+            <h2>🧪 Test 1: GET Request (Basic Test)</h2>
+            <button onclick="testGET('A')">Test กะ A (GET)</button>
+            <button onclick="testGET('B')">Test กะ B (GET)</button>
+            <div id="getResult"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>🧪 Test 2: POST Request (Simple JSON)</h2>
+            <button onclick="testPOST_Simple('A')">Test กะ A (POST Simple)</button>
+            <button onclick="testPOST_Simple('B')">Test กะ B (POST Simple)</button>
+            <div id="postSimpleResult"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>🧪 Test 3: POST Request (Full Data)</h2>
+            <button onclick="testPOST_Full('A')">Test กะ A (POST Full)</button>
+            <button onclick="testPOST_Full('B')">Test กะ B (POST Full)</button>
+            <div id="postFullResult"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>🧪 Test 4: JSONP Fallback</h2>
+            <button onclick="testJSONP('A')">Test กะ A (JSONP)</button>
+            <button onclick="testJSONP('B')">Test กะ B (JSONP)</button>
+            <div id="jsonpResult"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>📊 Detailed Logs:</h2>
+            <div id="logs"></div>
+        </div>
+    </div>
+
+    <script>
+        const URLS = {
+            A: '',
+            B: ''
+        };
+
+        function updateURLs() {
+            URLS.A = document.getElementById('urlA').value;
+            URLS.B = document.getElementById('urlB').value;
+        }
+
+        function log(message, type = 'info') {
+            const logsDiv = document.getElementById('logs');
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.innerHTML = `
+                <span class="${type}">[${new Date().toLocaleTimeString()}]</span>
+                <pre>${message}</pre>
+            `;
+            logsDiv.insertBefore(entry, logsDiv.firstChild);
+            console.log(message);
+        }
+
+        // Test 1: GET Request
+        async function testGET(shift) {
+            updateURLs();
+            const url = URLS[shift];
+            const resultDiv = document.getElementById('getResult');
+            resultDiv.innerHTML = `<p class="info">Testing GET request to ${shift}...</p>`;
+            log(`Testing GET: ${url}`, 'info');
+
+            try {
+                const response = await fetch(url, {
+                    method: 'GET',
+                    cache: 'no-cache'
+                });
+
+                const text = await response.text();
+                let json = null;
+                try { json = JSON.parse(text); } catch(e) {}
+
+                const result = {
+                    status: response.status,
+                    statusText: response.statusText,
+                    ok: response.ok,
+                    headers: Object.fromEntries(response.headers.entries()),
+                    body: text,
+                    json: json
+                };
+
+                log(`GET Success: ${JSON.stringify(result, null, 2)}`, 'success');
+                resultDiv.innerHTML = `
+                    <p class="success">✅ GET Request สำเร็จ</p>
+                    <pre>${JSON.stringify(result, null, 2)}</pre>
+                `;
+            } catch (error) {
+                log(`GET Error: ${error.message}\n${error.stack}`, 'error');
+                resultDiv.innerHTML = `
+                    <p class="error">❌ GET Request ล้มเหลว</p>
+                    <pre>${error.message}\n${error.stack}</pre>
+                `;
+            }
+        }
+
+        // Test 2: POST Simple
+        async function testPOST_Simple(shift) {
+            updateURLs();
+            const url = URLS[shift];
+            const resultDiv = document.getElementById('postSimpleResult');
+            resultDiv.innerHTML = `<p class="info">Testing POST (Simple) to ${shift}...</p>`;
+
+            const testData = {
+                test: true,
+                shift: shift,
+                timestamp: new Date().toISOString()
+            };
+
+            log(`Testing POST Simple: ${url}\nData: ${JSON.stringify(testData)}`, 'info');
+
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'text/plain;charset=utf-8'
+                    },
+                    body: JSON.stringify(testData),
+                    cache: 'no-store'
+                });
+
+                const text = await response.text();
+                let json = null;
+                try { json = JSON.parse(text); } catch(e) {}
+
+                const result = {
+                    status: response.status,
+                    statusText: response.statusText,
+                    ok: response.ok,
+                    headers: Object.fromEntries(response.headers.entries()),
+                    body: text,
+                    json: json
+                };
+
+                log(`POST Simple Success: ${JSON.stringify(result, null, 2)}`, 'success');
+                resultDiv.innerHTML = `
+                    <p class="success">✅ POST Simple สำเร็จ</p>
+                    <pre>${JSON.stringify(result, null, 2)}</pre>
+                `;
+            } catch (error) {
+                log(`POST Simple Error: ${error.message}\n${error.stack}`, 'error');
+                resultDiv.innerHTML = `
+                    <p class="error">❌ POST Simple ล้มเหลว</p>
+                    <pre>${error.message}\n${error.stack}</pre>
+                    <p class="warning">⚠️ นี่อาจเป็น CORS issue - Apps Script ต้องตั้งค่า "Anyone" access</p>
+                `;
+            }
+        }
+
+        // Test 3: POST Full Data
+        async function testPOST_Full(shift) {
+            updateURLs();
+            const url = URLS[shift];
+            const resultDiv = document.getElementById('postFullResult');
+            resultDiv.innerHTML = `<p class="info">Testing POST (Full) to ${shift}...</p>`;
+
+            const testData = {
+                date: '2026-01-22',
+                shift: shift,
+                reporter: 'Test User',
+                data: {
+                    data: [
+                        { machine: 'CL1', operator: 'Test', production: 100 }
+                    ]
+                }
+            };
+
+            log(`Testing POST Full: ${url}\nData: ${JSON.stringify(testData)}`, 'info');
+
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'text/plain;charset=utf-8'
+                    },
+                    body: JSON.stringify(testData),
+                    cache: 'no-store',
+                    keepalive: true
+                });
+
+                const text = await response.text();
+                let json = null;
+                try { json = JSON.parse(text); } catch(e) {}
+
+                const result = {
+                    status: response.status,
+                    statusText: response.statusText,
+                    ok: response.ok,
+                    headers: Object.fromEntries(response.headers.entries()),
+                    body: text,
+                    json: json
+                };
+
+                log(`POST Full Success: ${JSON.stringify(result, null, 2)}`, 'success');
+                resultDiv.innerHTML = `
+                    <p class="success">✅ POST Full สำเร็จ</p>
+                    <pre>${JSON.stringify(result, null, 2)}</pre>
+                `;
+            } catch (error) {
+                log(`POST Full Error: ${error.message}\n${error.stack}`, 'error');
+                resultDiv.innerHTML = `
+                    <p class="error">❌ POST Full ล้มเหลว</p>
+                    <pre>${error.message}\n${error.stack}</pre>
+                `;
+            }
+        }
+
+        // Test 4: JSONP Fallback
+        function testJSONP(shift) {
+            updateURLs();
+            const url = URLS[shift];
+            const resultDiv = document.getElementById('jsonpResult');
+            resultDiv.innerHTML = `<p class="info">Testing JSONP to ${shift}...</p>`;
+            log(`Testing JSONP: ${url}`, 'info');
+
+            const callbackName = 'jsonpCallback_' + Date.now();
+            const script = document.createElement('script');
+            const timeout = setTimeout(() => {
+                cleanup();
+                log(`JSONP Timeout`, 'error');
+                resultDiv.innerHTML = `<p class="error">❌ JSONP Timeout</p>`;
+            }, 10000);
+
+            window[callbackName] = function(data) {
+                clearTimeout(timeout);
+                cleanup();
+                log(`JSONP Success: ${JSON.stringify(data, null, 2)}`, 'success');
+                resultDiv.innerHTML = `
+                    <p class="success">✅ JSONP สำเร็จ</p>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+            };
+
+            function cleanup() {
+                delete window[callbackName];
+                if (script.parentNode) {
+                    script.parentNode.removeChild(script);
+                }
+            }
+
+            script.onerror = function() {
+                clearTimeout(timeout);
+                cleanup();
+                log(`JSONP Error: Script failed to load`, 'error');
+                resultDiv.innerHTML = `<p class="error">❌ JSONP Error</p>`;
+            };
+
+            script.src = `${url}?callback=${callbackName}`;
+            document.body.appendChild(script);
+        }
+
+        // Initial log
+        log('Debug tool loaded. Ready to test Apps Script connections.', 'success');
+    </script>
+</body>
+</html>

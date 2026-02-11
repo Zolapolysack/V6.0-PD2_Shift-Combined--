@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>API Test - Production Dashboard</title>
+  <script src="https://cdn.tailwindcss.com/3.4.10"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { font-family: 'Kanit', sans-serif; }
+    .log-entry { padding: 0.5rem; border-left: 3px solid #3b82f6; margin-bottom: 0.5rem; }
+    .log-success { border-left-color: #10b981; background: #d1fae5; }
+    .log-error { border-left-color: #ef4444; background: #fee2e2; }
+    .log-info { border-left-color: #3b82f6; background: #dbeafe; }
+    .log-warning { border-left-color: #f59e0b; background: #fef3c7; }
+  </style>
+</head>
+<body class="bg-gradient-to-br from-slate-900 to-slate-700 min-h-screen p-8">
+  
+  <div class="max-w-6xl mx-auto">
+    <!-- Header -->
+    <div class="bg-white rounded-2xl shadow-2xl p-8 mb-6">
+      <h1 class="text-3xl font-bold text-gray-900 mb-2">🧪 API Testing Tool</h1>
+      <p class="text-gray-600">Production Dashboard - Diagnostic Page</p>
+    </div>
+    
+    <!-- Config Check -->
+    <div class="bg-white rounded-2xl shadow-2xl p-6 mb-6">
+      <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+        <span class="text-2xl">⚙️</span>
+        Configuration Check
+      </h2>
+      <div id="configCheck" class="space-y-2"></div>
+    </div>
+    
+    <!-- Test Controls -->
+    <div class="bg-white rounded-2xl shadow-2xl p-6 mb-6">
+      <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+        <span class="text-2xl">🎯</span>
+        API Test
+      </h2>
+      
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-2">Date Shift A</label>
+          <input type="date" id="dateA" value="2026-01-28" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none">
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-2">Date Shift B</label>
+          <input type="date" id="dateB" value="2026-01-28" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none">
+        </div>
+      </div>
+      
+      <button id="testBtn" class="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white font-bold py-4 rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all shadow-lg">
+        🚀 Test API Call
+      </button>
+    </div>
+    
+    <!-- Results -->
+    <div class="bg-white rounded-2xl shadow-2xl p-6 mb-6">
+      <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+        <span class="text-2xl">📊</span>
+        Results
+      </h2>
+      <div id="results" class="space-y-2"></div>
+    </div>
+    
+    <!-- Raw Response -->
+    <div class="bg-white rounded-2xl shadow-2xl p-6">
+      <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+        <span class="text-2xl">📝</span>
+        Raw Response
+      </h2>
+      <pre id="rawResponse" class="bg-gray-900 text-green-400 p-4 rounded-lg overflow-auto max-h-96 text-sm">Waiting for API call...</pre>
+    </div>
+  </div>
+  
+  <!-- Import config -->
+  <script src="./config.js"></script>
+  
+  <script>
+    // Log utilities
+    function addLog(message, type = 'info') {
+      const results = document.getElementById('results');
+      const entry = document.createElement('div');
+      entry.className = `log-entry log-${type} rounded-lg`;
+      
+      const icons = {
+        success: '✅',
+        error: '❌',
+        info: 'ℹ️',
+        warning: '⚠️'
+      };
+      
+      entry.innerHTML = `
+        <div class="flex items-start gap-2">
+          <span class="text-xl">${icons[type]}</span>
+          <div class="flex-1">
+            <p class="text-sm font-medium text-gray-900">${message}</p>
+            <p class="text-xs text-gray-500">${new Date().toLocaleTimeString('th-TH')}</p>
+          </div>
+        </div>
+      `;
+      
+      results.insertBefore(entry, results.firstChild);
+    }
+    
+    function setRawResponse(data) {
+      document.getElementById('rawResponse').textContent = JSON.stringify(data, null, 2);
+    }
+    
+    // Check configuration
+    function checkConfig() {
+      const configDiv = document.getElementById('configCheck');
+      const checks = [];
+      
+      // Check if config.js loaded
+      if (typeof API_URL === 'undefined') {
+        checks.push({ status: 'error', message: 'config.js NOT loaded!', detail: 'File missing or path incorrect' });
+      } else {
+        checks.push({ status: 'success', message: 'config.js loaded', detail: API_URL });
+      }
+      
+      // Check API URL format
+      if (typeof API_URL !== 'undefined') {
+        if (API_URL.includes('script.google.com')) {
+          checks.push({ status: 'success', message: 'API URL format valid', detail: 'Google Apps Script URL' });
+        } else {
+          checks.push({ status: 'warning', message: 'API URL format unusual', detail: API_URL });
+        }
+      }
+      
+      // Check browser
+      checks.push({ 
+        status: 'info', 
+        message: `Browser: ${navigator.userAgent.split(')')[0].split('(')[1]}`,
+        detail: ''
+      });
+      
+      // Render checks
+      configDiv.innerHTML = checks.map(check => `
+        <div class="log-entry log-${check.status} rounded-lg">
+          <p class="font-semibold text-sm">${check.message}</p>
+          ${check.detail ? `<p class="text-xs text-gray-600 mt-1">${check.detail}</p>` : ''}
+        </div>
+      `).join('');
+    }
+    
+    // Test API call
+    async function testAPI() {
+      const dateA = document.getElementById('dateA').value;
+      const dateB = document.getElementById('dateB').value;
+      
+      document.getElementById('results').innerHTML = '';
+      addLog('Starting API test...', 'info');
+      
+      try {
+        // Check API URL
+        if (typeof API_URL === 'undefined') {
+          throw new Error('API_URL is not defined! config.js not loaded.');
+        }
+        
+        addLog(`API URL: ${API_URL}`, 'info');
+        addLog(`Date A: ${dateA}, Date B: ${dateB}`, 'info');
+        
+        const url = `${API_URL}?dateA=${dateA}&dateB=${dateB}`;
+        addLog(`Full URL: ${url}`, 'info');
+        
+        addLog('Sending request...', 'info');
+        const startTime = Date.now();
+        
+        const response = await fetch(url);
+        const duration = Date.now() - startTime;
+        
+        addLog(`Response received in ${duration}ms`, duration < 5000 ? 'success' : 'warning');
+        addLog(`HTTP Status: ${response.status} ${response.statusText}`, response.ok ? 'success' : 'error');
+        
+        const contentType = response.headers.get('content-type');
+        addLog(`Content-Type: ${contentType}`, 'info');
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        setRawResponse(data);
+        
+        addLog('Data parsed successfully', 'success');
+        
+        // Check data structure
+        if (data.success) {
+          addLog('API returned success: true', 'success');
+          
+          if (data.data) {
+            addLog('Data object exists', 'success');
+            
+            if (data.data.summary) {
+              const s = data.data.summary;
+              addLog(`Summary found:`, 'success');
+              addLog(`  - Production A: ${s.productionShiftA || 0}`, 'info');
+              addLog(`  - Production B: ${s.productionShiftB || 0}`, 'info');
+              addLog(`  - Cutting A: ${s.cuttingShiftA || 0}`, 'info');
+              addLog(`  - Cutting B: ${s.cuttingShiftB || 0}`, 'info');
+            }
+            
+            if (data.data.details) {
+              addLog(`Details: ${data.data.details.length} records found`, 'success');
+              
+              if (data.data.details.length > 0) {
+                const first = data.data.details[0];
+                addLog(`Sample record:`, 'info');
+                addLog(`  - Brand: ${first.brand}`, 'info');
+                addLog(`  - Production: ${first.production}`, 'info');
+                addLog(`  - Machine: ${first.machineNo}`, 'info');
+              } else {
+                addLog('⚠️ No records in details array', 'warning');
+              }
+            }
+          } else {
+            addLog('⚠️ data.data is missing or null', 'warning');
+          }
+        } else {
+          addLog(`API returned success: false`, 'error');
+          addLog(`Error: ${data.error || 'Unknown error'}`, 'error');
+        }
+        
+        addLog('✅ Test completed successfully!', 'success');
+        
+      } catch (error) {
+        addLog(`❌ Test failed: ${error.message}`, 'error');
+        setRawResponse({ error: error.message, stack: error.stack });
+        
+        // Add troubleshooting tips
+        addLog('Troubleshooting tips:', 'warning');
+        addLog('1. Check if API URL in config.js is correct', 'info');
+        addLog('2. Verify Google Apps Script is deployed', 'info');
+        addLog('3. Check if the date has data in Google Sheets', 'info');
+        addLog('4. Look at Network tab in DevTools for more details', 'info');
+      }
+    }
+    
+    // Initialize
+    window.addEventListener('DOMContentLoaded', () => {
+      checkConfig();
+      document.getElementById('testBtn').addEventListener('click', testAPI);
+      
+      // Auto-test on load (optional)
+      setTimeout(() => {
+        addLog('Page loaded. Click "Test API Call" button to start.', 'info');
+      }, 500);
+    });
+  </script>
+  
+</body>
+</html>

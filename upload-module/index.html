@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>โมดูลอัพโหลดไฟล์รายงานผลิต - PD2 System</title>
+    <script src="https://cdn.tailwindcss.com/3.4.10"></script>
+    <script src="https://cdn.jsdelivr.net/npm/exceljs@4.3.0/dist/exceljs.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@200;300;400;500;600;700&display=swap" rel="stylesheet">
+    <script defer src="../pd2-notify.js"></script>
+    <style>
+        * {
+            font-family: 'Kanit', sans-serif;
+            font-feature-settings: "liga" 1, "kern" 1;
+            text-rendering: optimizeLegibility;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        
+        body {
+            background-color: #001827;
+            background-image: linear-gradient(160deg, #000482d5 0%, #053f57 45%, #062c65 100%);
+            min-height: 100vh;
+            font-size: 16px;
+            line-height: 1.6;
+            letter-spacing: 0.01em;
+            color: #f0f4f8;
+        }
+        
+        .glass {
+            background: linear-gradient(180deg, rgba(99,102,241,0.12) 0%, rgba(59,130,246,0.06) 100%);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(99,102,241,0.18);
+        }
+        
+        .glass-strong {
+            background: linear-gradient(180deg, rgba(67,56,202,0.32) 0%, rgba(49,46,129,0.30) 65%);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        
+        .upload-zone {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .upload-zone.dragover {
+            background: linear-gradient(180deg, rgba(99,102,241,0.25) 0%, rgba(59,130,246,0.15) 100%);
+            border-color: rgba(99,102,241,0.5);
+            transform: scale(1.02);
+        }
+        
+        .file-item {
+            transition: all 0.2s ease;
+        }
+        
+        .file-item:hover {
+            background: rgba(255,255,255,0.05);
+            transform: translateX(4px);
+        }
+        
+        .progress-bar {
+            transition: width 0.3s ease;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .spinner {
+            animation: spin 1s linear infinite;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+            transition: all 0.2s ease;
+        }
+        
+        .btn-primary:hover:not(:disabled) {
+            background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
+            transform: translateY(-1px);
+            box-shadow: 0 10px 25px -5px rgba(99, 102, 241, 0.5);
+        }
+        
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body class="min-h-screen pb-[env(safe-area-inset-bottom,0)]">
+    <!-- Header -->
+    <header class="glass-strong border-b border-white/10">
+        <div class="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-semibold text-white">โมดูลอัพโหลดไฟล์</h1>
+                        <p class="text-sm text-blue-200/80">ระบบจัดการรายงานผลการผลิตแผนก PD2</p>
+                    </div>
+                </div>
+                <a href="../index.html" class="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+                    </svg>
+                    <span class="text-white font-medium">กลับหน้าหลัก</span>
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
+        <!-- Instructions Card -->
+        <div class="glass rounded-2xl p-6 mb-6">
+            <div class="flex items-start gap-3">
+                <div class="flex-shrink-0 w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center">
+                    <svg class="w-6 h-6 text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                </div>
+                <div class="flex-1">
+                    <h2 class="text-lg font-semibold text-white mb-2">คำแนะนำการใช้งาน</h2>
+                    <ul class="space-y-1 text-sm text-blue-100/80">
+                        <li class="flex items-start gap-2">
+                            <span class="text-blue-400 mt-1">•</span>
+                            <span>อัพโหลดไฟล์ Excel/CSV ของ <strong>กะ A</strong> และ <strong>กะ B</strong> (จำเป็น)</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-blue-400 mt-1">•</span>
+                            <span>อัพโหลด <strong>ไฟล์เสริม (C)</strong> สำหรับข้อมูลตัดม้วนครั้งที่ 2 และ 3 (ถ้ามี)</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-blue-400 mt-1">•</span>
+                            <span>ระบบจะประมวลผลและสร้างรายงาน Excel พร้อมสรุปผลผลิตอัตโนมัติ</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Upload Section -->
+        <div class="grid md:grid-cols-3 gap-6 mb-6">
+            <!-- File A Upload -->
+            <div class="glass rounded-2xl p-6">
+                <div class="flex items-center gap-2 mb-4">
+                    <div class="w-8 h-8 bg-emerald-500/20 rounded-lg flex items-center justify-center">
+                        <span class="text-emerald-300 font-bold text-sm">A</span>
+                    </div>
+                    <h3 class="text-lg font-semibold text-white">ไฟล์กะ A</h3>
+                    <span class="ml-auto text-xs text-red-400">*จำเป็น</span>
+                </div>
+                <div id="dropZoneA" class="upload-zone glass-strong rounded-xl p-8 text-center cursor-pointer border-2 border-dashed border-indigo-400/30">
+                    <input type="file" id="fileInputA" accept=".xlsx,.xls,.csv" class="hidden">
+                    <svg class="w-12 h-12 mx-auto text-indigo-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                    </svg>
+                    <p class="text-white text-sm font-medium mb-1">คลิกหรือลากไฟล์มาที่นี่</p>
+                    <p class="text-blue-200/60 text-xs">รองรับ .xlsx, .xls, .csv</p>
+                </div>
+                <div id="fileInfoA" class="hidden mt-4"></div>
+            </div>
+
+            <!-- File B Upload -->
+            <div class="glass rounded-2xl p-6">
+                <div class="flex items-center gap-2 mb-4">
+                    <div class="w-8 h-8 bg-purple-500/20 rounded-lg flex items-center justify-center">
+                        <span class="text-purple-300 font-bold text-sm">B</span>
+                    </div>
+                    <h3 class="text-lg font-semibold text-white">ไฟล์กะ B</h3>
+                    <span class="ml-auto text-xs text-red-400">*จำเป็น</span>
+                </div>
+                <div id="dropZoneB" class="upload-zone glass-strong rounded-xl p-8 text-center cursor-pointer border-2 border-dashed border-indigo-400/30">
+                    <input type="file" id="fileInputB" accept=".xlsx,.xls,.csv" class="hidden">
+                    <svg class="w-12 h-12 mx-auto text-indigo-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                    </svg>
+                    <p class="text-white text-sm font-medium mb-1">คลิกหรือลากไฟล์มาที่นี่</p>
+                    <p class="text-blue-200/60 text-xs">รองรับ .xlsx, .xls, .csv</p>
+                </div>
+                <div id="fileInfoB" class="hidden mt-4"></div>
+            </div>
+
+            <!-- File C Upload -->
+            <div class="glass rounded-2xl p-6">
+                <div class="flex items-center gap-2 mb-4">
+                    <div class="w-8 h-8 bg-amber-500/20 rounded-lg flex items-center justify-center">
+                        <span class="text-amber-300 font-bold text-sm">C</span>
+                    </div>
+                    <h3 class="text-lg font-semibold text-white">ไฟล์เสริม</h3>
+                    <span class="ml-auto text-xs text-blue-300">ไม่บังคับ</span>
+                </div>
+                <div id="dropZoneC" class="upload-zone glass-strong rounded-xl p-8 text-center cursor-pointer border-2 border-dashed border-indigo-400/30">
+                    <input type="file" id="fileInputC" accept=".xlsx,.xls,.csv" class="hidden">
+                    <svg class="w-12 h-12 mx-auto text-indigo-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                    </svg>
+                    <p class="text-white text-sm font-medium mb-1">คลิกหรือลากไฟล์มาที่นี่</p>
+                    <p class="text-blue-200/60 text-xs">รองรับ .xlsx, .xls, .csv</p>
+                </div>
+                <div id="fileInfoC" class="hidden mt-4"></div>
+            </div>
+        </div>
+
+        <!-- Process Button -->
+        <div class="glass rounded-2xl p-6 mb-6">
+            <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div class="flex-1">
+                    <h3 class="text-lg font-semibold text-white mb-1">พร้อมประมวลผลแล้วหรือไม่?</h3>
+                    <p class="text-sm text-blue-200/80">ตรวจสอบไฟล์ที่อัพโหลดแล้วคลิก "เริ่มประมวลผล"</p>
+                </div>
+                <button id="processBtn" disabled 
+                    class="btn-primary px-8 py-3 rounded-xl text-white font-medium shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <span>เริ่มประมวลผล</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Progress Section -->
+        <div id="progressSection" class="hidden glass rounded-2xl p-6 mb-6">
+            <div class="flex items-center gap-3 mb-4">
+                <div class="spinner w-8 h-8 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full"></div>
+                <div class="flex-1">
+                    <h3 class="text-lg font-semibold text-white">กำลังประมวลผล...</h3>
+                    <p id="progressText" class="text-sm text-blue-200/80">กำลังเตรียมข้อมูล</p>
+                </div>
+                <span id="progressPercent" class="text-2xl font-bold text-indigo-400">0%</span>
+            </div>
+            <div class="w-full bg-gray-700/50 rounded-full h-3 overflow-hidden">
+                <div id="progressBar" class="progress-bar bg-gradient-to-r from-indigo-500 to-purple-500 h-full rounded-full" style="width: 0%"></div>
+            </div>
+        </div>
+
+        <!-- Results Section -->
+        <div id="resultsSection" class="hidden glass rounded-2xl p-6">
+            <div class="flex items-center gap-3 mb-4">
+                <div class="w-10 h-10 bg-emerald-500/20 rounded-lg flex items-center justify-center">
+                    <svg class="w-6 h-6 text-emerald-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                </div>
+                <div>
+                    <h3 class="text-lg font-semibold text-white">ประมวลผลสำเร็จ!</h3>
+                    <p class="text-sm text-emerald-200/80">รายงานพร้อมดาวน์โหลดแล้ว</p>
+                </div>
+            </div>
+            <div id="resultsContent" class="space-y-3 mt-4"></div>
+            <div class="mt-6 pt-6 border-t border-white/10 flex gap-3">
+                <button id="downloadBtn" class="btn-primary flex-1 px-6 py-3 rounded-xl text-white font-medium shadow-lg flex items-center justify-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                    </svg>
+                    <span>ดาวน์โหลดรายงาน</span>
+                </button>
+                <button onclick="location.reload()" class="glass px-6 py-3 rounded-xl text-white font-medium hover:bg-white/10 transition-colors flex items-center justify-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                    </svg>
+                    <span>ประมวลผลใหม่</span>
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <script src="excel-generator.js"></script>
+    <script src="processor.js"></script>
+</body>
+</html>
